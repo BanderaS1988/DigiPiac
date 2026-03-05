@@ -1953,8 +1953,17 @@ async function doRegister() {
     });
   }
 
+  // Regisztráció után azonnal bejelentkeztetjük
+  const { error: loginErr } = await sb.auth.signInWithPassword({ email, password: pass });
+  if (loginErr) {
+    // Ha valamiért nem sikerül auto-login, csak értesítjük
+    closeModal('modal-auth');
+    showToast('✅ Regisztráció sikeres! Jelentkezz be.', 'info');
+    return;
+  }
+
   closeModal('modal-auth');
-  showToast('✅ Sikeres regisztráció! Erősítsd meg az e-mail címed a bejelentkezéshez.');
+  showToast('✅ Sikeres regisztráció és bejelentkezés!');
 }
 window.doRegister = doRegister;
 
