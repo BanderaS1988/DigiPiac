@@ -15,6 +15,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <!-- Stripe.js -->
 <script src="https://js.stripe.com/v3/"></script>
+<!-- PayPal SDK -->
+<script src="https://www.paypal.com/sdk/js?client-id=test&currency=HUF"></script>
 <style>
 /* ════════════════════════════════════════════════
    RESET & CSS VARIABLES
@@ -407,6 +409,13 @@ canvas{max-height:220px}
 .payout-balance{background:linear-gradient(135deg,var(--p),var(--s));border-radius:16px;padding:28px;margin-bottom:24px;text-align:center}
 .payout-balance .amount{font-size:3rem;font-weight:900;color:#fff}
 .payout-balance .label{color:#ffffffaa;font-size:.9rem;margin-top:6px}
+.payout-methods{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+.payout-method{background:var(--card);border:2px solid var(--border);border-radius:16px;padding:24px;cursor:pointer;transition:all .2s;text-align:center}
+.payout-method:hover{border-color:var(--p);transform:translateY(-2px)}
+.payout-method.selected{border-color:var(--success);background:linear-gradient(135deg,#1a2a1a,var(--card))}
+.payout-method .icon{font-size:2.5rem;margin-bottom:12px}
+.payout-method .name{font-weight:700;margin-bottom:4px}
+.payout-method .desc{color:var(--muted);font-size:.78rem}
 
 /* ════════════════════════════════════════════════
    AFFILIATE
@@ -521,6 +530,8 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
     <button class="nav-btn" onclick="handleAuthBtn()" id="auth-btn">👤 Bejelentkezés</button>
     <button class="nav-btn" onclick="showPage('cart')">🛒 <span class="badge-pill" id="cart-count">0</span></button>
     <button class="nav-btn" onclick="toggleTheme()" id="theme-btn">🌙</button>
+    <!-- KIJELENTKEZÉS GOMB -->
+    <button class="nav-btn" onclick="doLogout()" id="logout-btn" style="display:none">🚪 Kilépés</button>
   </div>
   <button class="hamburger" onclick="toggleMobile()" id="hamburger">
     <span></span><span></span><span></span>
@@ -537,6 +548,8 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
   <a href="#" onclick="requireAuth(()=>{showPage('payout');closeMobile()})">💸 Kifizetés</a>
   <button onclick="handleAuthBtn();closeMobile()">👤 Fiók</button>
   <button onclick="showPage('cart');closeMobile()">🛒 Kosár</button>
+  <!-- MOBIL KIJELENTKEZÉS GOMB -->
+  <button onclick="doLogout();closeMobile()" id="mobile-logout-btn" style="display:none">🚪 Kilépés</button>
 </div>
 
 <!-- ══════════════════════════════════════════════
@@ -603,7 +616,7 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
   </div>
   <div style="background:var(--card);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:30px 24px;margin-bottom:20px">
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:24px;max-width:900px;margin:0 auto">
-      <div style="text-align:center"><div style="font-size:2rem;margin-bottom:8px">🔒</div><div style="font-weight:700;margin-bottom:4px">Biztonságos fizetés</div><div style="color:var(--muted);font-size:.82rem">Stripe által biztosított</div></div>
+      <div style="text-align:center"><div style="font-size:2rem;margin-bottom:8px">🔒</div><div style="font-weight:700;margin-bottom:4px">Biztonságos fizetés</div><div style="color:var(--muted);font-size:.82rem">Stripe + PayPal</div></div>
       <div style="text-align:center"><div style="font-size:2rem;margin-bottom:8px">⚡</div><div style="font-weight:700;margin-bottom:4px">Azonnali letöltés</div><div style="color:var(--muted);font-size:.82rem">Fizetés után azonnal hozzáférsz</div></div>
       <div style="text-align:center"><div style="font-size:2rem;margin-bottom:8px">🇭🇺</div><div style="font-weight:700;margin-bottom:4px">Magyar forint</div><div style="color:var(--muted);font-size:.82rem">Nincs devizaváltás</div></div>
       <div style="text-align:center"><div style="font-size:2rem;margin-bottom:8px">🛡️</div><div style="font-weight:700;margin-bottom:4px">30 napos garancia</div><div style="color:var(--muted);font-size:.82rem">Pénz-visszafizetés garantált</div></div>
@@ -807,6 +820,7 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
       <div class="form-group"><label>Új jelszó</label><input type="password" id="new-password" placeholder="Min. 8 karakter"></div>
       <div class="form-group"><label>Jelszó megerősítése</label><input type="password" id="confirm-password" placeholder="Jelszó újra"></div>
       <button class="btn btn-primary" onclick="changePassword()">🔑 Jelszó módosítása</button>
+      <div id="password-message" style="margin-top:10px;font-size:.8rem;color:var(--success);display:none"></div>
     </div>
     <div class="danger-zone">
       <h4>⚠️ Veszélyzóna</h4>
@@ -841,12 +855,10 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
     <div class="page-title">💳 Pénztár</div>
 
     <div class="stripe-info-box">
-      <h4>🔒 Stripe Checkout – Biztonságos fizetés</h4>
+      <h4>🔒 Biztonságos fizetés</h4>
       <p>
-        A fizetést a <strong>Stripe</strong> kezeli – a kártyaadatok sosem jutnak a szerverünkre.
-        A „Fizetés" gombra kattintva átirányítunk a Stripe biztonságos fizetési oldalára.<br><br>
-        <strong>Konfiguráció szükséges:</strong> A <code>STRIPE_PUBLISHABLE_KEY</code> és a
-        <code>create-checkout-session</code> Supabase Edge Function beállítása szükséges éles üzemhez.
+        Válassz fizetési módot: <strong>Stripe</strong> (bankkártya) vagy <strong>PayPal</strong>.
+        A fizetés után azonnal letöltheted a termékeket.
       </p>
     </div>
 
@@ -871,10 +883,19 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
 
     <div class="checkout-box">
       <h3>💳 Fizetési mód</h3>
-      <div class="payment-provider-badge">
-        <div class="stripe-logo">stripe</div>
-        <p>A fizetést a Stripe PCI-DSS tanúsítvánnyal rendelkező platform kezeli. Bankkártya, Apple Pay, Google Pay támogatott.</p>
+      <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:12px;background:var(--card);border:2px solid var(--border);border-radius:12px;flex:1">
+          <input type="radio" name="payment-method" value="stripe" checked style="accent-color:var(--p)"> 
+          <span style="font-weight:600">💳 Stripe</span>
+          <span style="color:var(--muted);font-size:.8rem">Bankkártya, Apple Pay</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:12px;background:var(--card);border:2px solid var(--border);border-radius:12px;flex:1">
+          <input type="radio" name="payment-method" value="paypal"> 
+          <span style="font-weight:600">🅿️ PayPal</span>
+          <span style="color:var(--muted);font-size:.8rem">PayPal egyenleg, bankkártya</span>
+        </label>
       </div>
+      <div id="paypal-button-container" style="margin-top:16px;display:none"></div>
     </div>
 
     <div class="checkout-box">
@@ -888,10 +909,10 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
       <div class="gdpr-check"><input type="checkbox" id="gdpr2"><label for="gdpr2">Elfogadom az <a href="#" onclick="openModal('modal-privacy')">Adatvédelmi irányelveket</a></label></div>
       <div class="gdpr-check"><input type="checkbox" id="gdpr3"><label for="gdpr3">Hozzájárulok a digitális tartalom azonnali hozzáférhetővé tételéhez (elállási jog lemondása)</label></div>
       <div class="gdpr-check"><input type="checkbox" id="gdpr4"><label for="gdpr4">Feliratkozom a hírlevélre (opcionális)</label></div>
-      <button class="btn btn-primary btn-full btn-lg" style="margin-top:16px;background:linear-gradient(135deg,#635bff,#8b5cf6)" id="pay-btn" onclick="initiateStripeCheckout()">
-        🔒 Biztonságos fizetés a Stripe-on
+      <button class="btn btn-primary btn-full btn-lg" style="margin-top:16px;background:linear-gradient(135deg,#635bff,#8b5cf6)" id="pay-btn" onclick="initiatePayment()">
+        🔒 Tovább a fizetéshez
       </button>
-      <div class="secure-badge">🔒 Stripe · PCI-DSS · 256-bit SSL · Bankkártya &amp; ApplePay</div>
+      <div class="secure-badge">🔒 Stripe · PayPal · PCI-DSS · 256-bit SSL</div>
     </div>
   </div>
 </div>
@@ -919,7 +940,6 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
 
 <!-- ══════════════════════════════════════════════
      SELL / DASHBOARD / ADMIN / PAYOUT / AFFILIATE
-     (maradék oldalak változatlanok)
 ══════════════════════════════════════════════ -->
 <div id="page-sell" class="page">
   <div class="sell-page">
@@ -928,7 +948,7 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
     <div class="steps">
       <div class="step"><div class="step-num">1</div><h4>Töltsd fel</h4><p>Bármilyen digitális fájl: e-book, videó, sablon, szoftver...</p></div>
       <div class="step"><div class="step-num">2</div><h4>Szabj árat</h4><p>Te döntöd el az árat. Mi 15% jutalékot vonunk le eladásonként.</p></div>
-      <div class="step"><div class="step-num">3</div><h4>Keress</h4><p>Összeg havi rendszerességgel kerül bankszámládra.</p></div>
+      <div class="step"><div class="step-num">3</div><h4>Keress</h4><p>Összeg havi rendszerességgel kerül bankszámládra vagy PayPalodra.</p></div>
     </div>
     <div class="sell-section">
       <h3>📦 Termék alapadatok</h3>
@@ -949,12 +969,10 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
         <option value="audio">Hang/Zene</option>
         <option value="foto">Fotó</option>
       </select>
-      <label class="sell-form-label">Kulcsszavak (vesszővel)</label>
+      <label class="sell-form-label">Kulcsszavak (vesszővel elválasztva)</label>
       <input class="sell-form-input" type="text" placeholder="python, programozás, AI" id="sell-tags">
       <label class="sell-form-label">YouTube előnézet URL (opcionális)</label>
       <input class="sell-form-input" type="text" placeholder="https://youtube.com/watch?v=..." id="sell-yt">
-      <label class="sell-form-label">Emoji ikon</label>
-      <input class="sell-form-input" type="text" placeholder="📦" id="sell-emoji" maxlength="4" value="📦">
     </div>
     <div class="sell-section">
       <h3>📁 Termékfájl feltöltése</h3>
@@ -992,6 +1010,7 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
       <input class="sell-form-input" type="number" placeholder="20" value="20" min="0" max="50" id="sell-aff">
     </div>
     <button class="btn btn-primary btn-full btn-lg" id="publish-btn" onclick="submitProduct()">🚀 Termék közzététele</button>
+    <div id="product-message" style="margin-top:16px;font-size:.9rem;color:var(--success);display:none"></div>
   </div>
 </div>
 
@@ -1081,20 +1100,49 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
     <div class="payout-balance">
       <div class="amount" id="payout-balance-amount">—</div>
       <div class="label">Elérhető egyenleg</div>
-      <button class="btn" style="background:#fff;color:#000;margin-top:16px;font-weight:700" onclick="requestPayout()">Kifizetés igénylése</button>
     </div>
+    
+    <div class="payout-methods">
+      <div class="payout-method selected" onclick="selectPayoutMethod('bank')" id="method-bank">
+        <div class="icon">🏦</div>
+        <div class="name">Banki átutalás</div>
+        <div class="desc">1-3 munkanap</div>
+      </div>
+      <div class="payout-method" onclick="selectPayoutMethod('paypal')" id="method-paypal">
+        <div class="icon">🅿️</div>
+        <div class="name">PayPal</div>
+        <div class="desc">Azonnali</div>
+      </div>
+    </div>
+    
+    <div id="bank-details" style="display:block">
+      <div class="sell-section">
+        <h3>🏦 Bankszámla adatok</h3>
+        <div class="form-group"><label>Számlaszám</label><input type="text" id="payout-bank-acc" placeholder="12345678-12345678-12345678"></div>
+        <div class="form-group"><label>Számlabirtokos neve</label><input type="text" id="payout-bank-name" placeholder="Kovács János"></div>
+        <button class="btn btn-primary" onclick="saveBankDetails()">Mentés</button>
+        <div id="bank-save-message" style="margin-top:10px;font-size:.8rem;color:var(--success);display:none"></div>
+      </div>
+    </div>
+    
+    <div id="paypal-details" style="display:none">
+      <div class="sell-section">
+        <h3>🅿️ PayPal email</h3>
+        <div class="form-group"><label>PayPal email cím</label><input type="email" id="payout-paypal-email" placeholder="email@example.com"></div>
+        <button class="btn btn-primary" onclick="savePaypalDetails()">Mentés</button>
+        <div id="paypal-save-message" style="margin-top:10px;font-size:.8rem;color:var(--success);display:none"></div>
+      </div>
+    </div>
+    
+    <button class="btn btn-success btn-full btn-lg" style="margin:20px 0" onclick="requestPayout()">💸 Kifizetés igénylése</button>
+    <div id="payout-message" style="margin-bottom:20px;font-size:.9rem;color:var(--success);display:none"></div>
+    
     <div class="table-wrap">
       <h3>📋 Kifizetési előzmények</h3>
       <table class="table">
         <thead><tr><th>Dátum</th><th>Összeg</th><th>Módszer</th><th>Állapot</th></tr></thead>
         <tbody id="payout-history"><tr><td colspan="4" style="text-align:center;color:var(--muted)">Töltés...</td></tr></tbody>
       </table>
-    </div>
-    <div class="sell-section" style="margin-top:20px">
-      <h3>🏦 Bankszámla adatok</h3>
-      <div class="form-group"><label>Számlaszám</label><input type="text" id="payout-bank-acc" placeholder="12345678-12345678-12345678"></div>
-      <div class="form-group"><label>Számlabirtokos neve</label><input type="text" id="payout-bank-name" placeholder="Kovács János"></div>
-      <button class="btn btn-primary" onclick="saveBankDetails()">Mentés</button>
     </div>
   </div>
 </div>
@@ -1144,6 +1192,7 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
       </div>
       <div class="form-group"><label>Üzenet</label><textarea id="ticket-msg" placeholder="Írj részletesen..." style="height:100px;resize:none"></textarea></div>
       <button class="btn btn-primary" id="ticket-submit-btn" onclick="submitContactForm()">Küldés</button>
+      <div id="ticket-message" style="margin-top:10px;font-size:.8rem;color:var(--success);display:none"></div>
     </div>
     <div class="section-title" style="margin-top:24px">📋 Korábbi ticketjeid</div>
     <div id="my-tickets-list"><p style="color:var(--muted);font-size:.85rem">Bejelentkezés után látod ticketjeidet.</p></div>
@@ -1155,7 +1204,7 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
     <button class="back-btn" onclick="showPage('home')">← Vissza</button>
     <div class="page-title">📋 Impresszum</div>
     <div class="legal-section"><h3>🏢 Cégadatok</h3><p><strong>Cégnév:</strong> DigiPiac Kft.</p><p><strong>Székhely:</strong> 1051 Budapest, Október 6. u. 12.</p><p><strong>Adószám:</strong> 12345678-2-41</p><p><strong>Cégjegyzékszám:</strong> 01-09-123456</p></div>
-    <div class="legal-section"><h3>👤 Kapcsolattartó</h3><p><strong>Ügyvezető:</strong> Kovács János</p><p><strong>E-mail:</strong> <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="caa3a4aca58aaea3ada3baa3aba9e4a2bf">[email&#160;protected]</a></p><p><strong>Telefon:</strong> +36 1 234 5678</p></div>
+    <div class="legal-section"><h3>👤 Kapcsolattartó</h3><p><strong>Ügyvezető:</strong> Kovács János</p><p><strong>E-mail:</strong> info@digipiac.hu</p><p><strong>Telefon:</strong> +36 1 234 5678</p></div>
     <div class="legal-section"><h3>🌐 Tárhelyszolgáltató</h3><p><strong>Név:</strong> Vercel Inc.</p><p><strong>Székhely:</strong> 340 Pine Street, San Francisco, CA 94104, USA</p></div>
     <div class="legal-section"><h3>⚖️ Felügyeleti hatóság</h3><p>Nemzeti Fogyasztóvédelmi Hatóság · NAIH</p></div>
   </div>
@@ -1208,6 +1257,7 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
     </div>
     <div class="form-group"><label>Bankszámlaszám</label><input type="text" id="modal-bank-acc"></div>
     <div class="form-group"><label>Banknév</label><input type="text" id="modal-bank-name"></div>
+    <div class="form-group"><label>PayPal email</label><input type="email" id="modal-paypal-email"></div>
     <button class="btn btn-primary btn-full" onclick="saveProfileModal()">💾 Mentés</button>
   </div>
 </div>
@@ -1220,7 +1270,7 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
       <h4>1. Bevezető</h4><p>A DigiPiac platform magyar digitális termékek adásvételét elősegítő piactér.</p>
       <h4>2. Regisztráció</h4><p>A Platform használatához regisztráció szükséges. Valós adatok megadása kötelező.</p>
       <h4>3. Vásárlási feltételek</h4><p>A digitális termékek megvásárlásakor a vásárló hozzájárul a tartalom azonnali hozzáférhetővé tételéhez, ezzel elállási jogáról lemond a 45/2014. (II. 26.) Korm. rendelet alapján.</p>
-      <h4>4. Fizetés</h4><p>A fizetést a Stripe Inc. kezeli. A Platform nem tárolja a bankkártya-adatokat.</p>
+      <h4>4. Fizetés</h4><p>A fizetést a Stripe Inc. és a PayPal kezeli. A Platform nem tárolja a bankkártya-adatokat.</p>
       <h4>5. Eladói feltételek</h4><p>Az eladó szavatolja, hogy a feltöltött tartalom szerzői jogilag az ő tulajdona. A Platform 15% jutalékot von le minden eladás után.</p>
       <h4>6. Garancia</h4><p>30 napos pénzvisszafizetési garancia, ha a termék nem felel meg a leírásnak.</p>
       <h4>7. Irányadó jog</h4><p>Magyar jog irányadó. Jogvita esetén Budapest Környéki Törvényszék illetékes.</p>
@@ -1235,11 +1285,11 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
     <div class="legal-content">
       <h4>Adatkezelő</h4><p>DigiPiac Kft. · 1051 Budapest, Október 6. u. 12.</p>
       <h4>Kezelt adatok</h4><p>Név, e-mail cím, számlázási cím, vásárlási előzmények, letöltési naplók.</p>
-      <h4>Fizetési adatok</h4><p>Bankkártya-adatokat nem tárolunk. A fizetést a Stripe Inc. kezeli saját adatvédelmi irányvonalai szerint.</p>
+      <h4>Fizetési adatok</h4><p>Bankkártya-adatokat nem tárolunk. A fizetést a Stripe Inc. és PayPal kezeli saját adatvédelmi irányvonalai szerint.</p>
       <h4>Az adatkezelés célja</h4><p>Rendelések teljesítése, számla kiállítása, ügyfélszolgálat, jogszabályi kötelezettségek.</p>
       <h4>Adatmegőrzés</h4><p>Számlázási adatok: 8 év. Felhasználói adatok: fiók törlésétől számított 30 nap.</p>
       <h4>Jogaid</h4><p>Hozzáférés, helyesbítés, törlés, adathordozhatóság. Panasz: NAIH.</p>
-      <h4>Kapcsolat</h4><p><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="1273767366647776777e777f52767b757b627b73713c7a67">[email&#160;protected]</a></p>
+      <h4>Kapcsolat</h4><p>info@digipiac.hu</p>
     </div>
   </div>
 </div>
@@ -1319,63 +1369,20 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
   <div class="footer-bottom">
     © 2025 DigiPiac Kft. · Minden jog fenntartva · 1051 Budapest<br>
     <a href="#" onclick="openModal('modal-tos')">ÁSZF</a> · <a href="#" onclick="openModal('modal-privacy')">Adatvédelem</a> · <a href="#" onclick="showPage('impresszum')">Impresszum</a> · <a href="#" onclick="showPage('contact')">Kapcsolat</a><br>
-    <span style="margin-top:6px;display:block">💳 Fizetési szolgáltató: <strong style="color:#635bff">Stripe</strong></span>
+    <span style="margin-top:6px;display:block">💳 Fizetési szolgáltatók: <strong style="color:#635bff">Stripe</strong> & <strong style="color:#003087">PayPal</strong></span>
   </div>
 </footer>
 
 <!-- ══════════════════════════════════════════════
-     JAVASCRIPT - JAVÍTOTT VERZIÓ
+     JAVASCRIPT - TELJESEN JAVÍTOTT VERZIÓ
 ══════════════════════════════════════════════ -->
 <script>
 /* ════════════════════════════════════════════
    §0  CRITICAL FIXES - MINDEN MÁS ELÉ KELL!
-   ──────────────────────────────────────────
-   - requireAuth globális elérhetősége
-   - SES kompatibilitás
-   - Prototípus módosítások tiltása
 ════════════════════════════════════════════ */
-
-// SES védelem - ez kell a lockdown-install.js hibákhoz!
-(function() {
-  // Meglévő konstruktorok megőrzése
-  const OriginalArray = window.Array;
-  const OriginalObject = window.Object;
-  const OriginalFunction = window.Function;
-  
-  // Ha van harden, alkalmazzuk
-  if (typeof harden !== 'undefined') {
-    try {
-      // Prototípusok megőrzése
-      const arrayProto = Object.create(Array.prototype);
-      const objectProto = Object.create(Object.prototype);
-      
-      Object.setPrototypeOf(Array.prototype, arrayProto);
-      Object.setPrototypeOf(Object.prototype, objectProto);
-      
-      harden(Array.prototype);
-      harden(Object.prototype);
-    } catch (e) {
-      console.warn('SES hardening skipped:', e);
-    }
-  }
-  
-  // Blokkoljuk a prototípus módosításokat
-  Object.defineProperty(window, 'Array', {
-    value: OriginalArray,
-    writable: false,
-    configurable: false
-  });
-  
-  Object.defineProperty(window, 'Object', {
-    value: OriginalObject,
-    writable: false,
-    configurable: false
-  });
-})();
 
 // GLOBÁLIS függvények - ezek kellenek a HTML gombokhoz!
 window.requireAuth = function(cb) {
-  console.log('requireAuth called', window.currentUser); // debug
   if (window.currentUser) {
     if (typeof cb === 'function') cb();
   } else {
@@ -1397,15 +1404,15 @@ window.handleAuthBtn = function() {
 const SUPABASE_URL      = 'https://kqugolmndqonbnjetdyi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxdWdvbG1uZHFvbmJuamV0ZHlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTM3NjMsImV4cCI6MjA4ODI2OTc2M30.wGEBEJDPUKsUPu9W5vxvH7Do0wX9U3FdgKzEzny_zBg';
 const STRIPE_PUBLISHABLE_KEY = 'pk_test_51T7IaDKmsMGO0we9XFymkUXh5lUkiPU1fC1VCKx6WRMPoaaVwDlmx2n1qGAjHRxuTFJ7s1goxuUXRmQcsnNgBTFi00QqFefU9r';
+const PAYPAL_CLIENT_ID = 'test'; // Élesben cseréld élő client ID-ra
 
 // Edge Function URL
 const SUPABASE_PROJECT_REF = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || '';
-const CHECKOUT_EDGE_FUNCTION =
-  `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/create-checkout-session`;
+const CHECKOUT_EDGE_FUNCTION = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/create-checkout-session`;
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/* FIX #8: Stripe inicializálása */
+/* Stripe inicializálása */
 let stripeInstance = null;
 function getStripe() {
   if (!stripeInstance && !STRIPE_PUBLISHABLE_KEY.includes('REPLACE')) {
@@ -1434,8 +1441,9 @@ let affChartInited    = false;
 let adminChartInited  = false;
 let mainSwiper        = null;
 let authReady         = false;
+let selectedPayoutMethod = 'bank';
 
-// Globális változók elérhetővé tétele a window objektumon
+// Globális változók elérhetővé tétele
 window.currentUser = currentUser;
 window.currentProfile = currentProfile;
 
@@ -1463,17 +1471,16 @@ function isValidUUID(str) {
 
 function sanitizeCartItem(raw) {
   if (!raw || typeof raw !== 'object') return null;
-  if (!isValidUUID(raw.id))                             return null;
+  if (!isValidUUID(raw.id)) return null;
   if (typeof raw.name !== 'string' || !raw.name.trim()) return null;
   if (typeof raw.price !== 'number' || !Number.isFinite(raw.price)) return null;
-  if (raw.price < 500 || raw.price > 10_000_000)        return null;
-  if (raw.seller_id && !isValidUUID(raw.seller_id))      return null;
+  if (raw.price < 500 || raw.price > 10_000_000) return null;
+  if (raw.seller_id && !isValidUUID(raw.seller_id)) return null;
   return {
-    id:          raw.id,
-    name:        String(raw.name).trim().slice(0, 200),
-    price:       Math.round(raw.price),
-    emoji:       /^\p{Emoji}/u.test(String(raw.emoji || '')) ? String(raw.emoji).slice(0, 4) : '📦',
-    seller_id:   isValidUUID(raw.seller_id) ? raw.seller_id : '',
+    id: raw.id,
+    name: String(raw.name).trim().slice(0, 200),
+    price: Math.round(raw.price),
+    seller_id: isValidUUID(raw.seller_id) ? raw.seller_id : '',
     seller_name: String(raw.seller_name || '').trim().slice(0, 100)
   };
 }
@@ -1506,24 +1513,22 @@ function showPage(id) {
   window.scrollTo({ top: 0, behavior: 'smooth' });
   closeMobile();
   const loaders = {
-    cart:      renderCart,
-    wishlist:  renderWishlist,
-    checkout:  renderCheckoutSummary,
+    cart: renderCart,
+    wishlist: renderWishlist,
+    checkout: renderCheckoutSummary,
     dashboard: loadDashboard,
     affiliate: loadAffiliate,
-    admin:     loadAdmin,
-    profile:   renderProfile,
-    payout:    loadPayout,
-    contact:   loadMyTickets
+    admin: loadAdmin,
+    profile: renderProfile,
+    payout: loadPayout,
+    contact: loadMyTickets
   };
   if (loaders[id]) loaders[id]();
 }
-
-// Globális elérhetőség
 window.showPage = showPage;
 
 function toggleTheme() {
-  const html  = document.documentElement;
+  const html = document.documentElement;
   const light = html.getAttribute('data-theme') === 'light';
   html.setAttribute('data-theme', light ? 'dark' : 'light');
   document.getElementById('theme-btn').textContent = light ? '🌙' : '☀️';
@@ -1588,40 +1593,55 @@ sb.auth.onAuthStateChange(async (event, session) => {
 ════════════════════════════════════════════ */
 function updateNavForUser() {
   const btn = document.getElementById('auth-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const mobileLogoutBtn = document.getElementById('mobile-logout-btn');
+  
   if (!btn) return;
   const name = currentProfile?.full_name || currentUser?.email?.split('@')[0] || 'Profil';
   btn.textContent = '👤 ' + name;
+  
+  if (logoutBtn) logoutBtn.style.display = 'inline-flex';
+  if (mobileLogoutBtn) mobileLogoutBtn.style.display = 'block';
 
   const isAdmin = currentProfile?.role === 'admin';
   const adminLink = document.getElementById('admin-nav-link');
   const mobileAdminLink = document.getElementById('mobile-admin-link');
-  if (adminLink)       adminLink.style.display       = isAdmin ? 'block' : 'none';
-  if (mobileAdminLink) mobileAdminLink.style.display  = isAdmin ? 'block' : 'none';
+  if (adminLink) adminLink.style.display = isAdmin ? 'block' : 'none';
+  if (mobileAdminLink) mobileAdminLink.style.display = isAdmin ? 'block' : 'none';
 }
 
 function updateNavForGuest() {
   const btn = document.getElementById('auth-btn');
+  const logoutBtn = document.getElementById('logout-btn');
+  const mobileLogoutBtn = document.getElementById('mobile-logout-btn');
+  
   if (btn) btn.textContent = '👤 Bejelentkezés';
+  if (logoutBtn) logoutBtn.style.display = 'none';
+  if (mobileLogoutBtn) mobileLogoutBtn.style.display = 'none';
+  
   const adminLink = document.getElementById('admin-nav-link');
   const mobileAdminLink = document.getElementById('mobile-admin-link');
-  if (adminLink)       adminLink.style.display       = 'none';
-  if (mobileAdminLink) mobileAdminLink.style.display  = 'none';
+  if (adminLink) adminLink.style.display = 'none';
+  if (mobileAdminLink) mobileAdminLink.style.display = 'none';
 }
 
 async function loadProfile() {
   if (!currentUser) return;
   try {
-    const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    const { data, error } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    if (error) throw error;
     if (data) {
       currentProfile = data;
       window.currentProfile = data;
     }
-  } catch (e) { console.warn('loadProfile:', e); }
+  } catch (e) { 
+    console.warn('loadProfile:', e);
+  }
 }
 
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
-  const pass  = document.getElementById('login-password').value;
+  const pass = document.getElementById('login-password').value;
   if (!email || !pass) { showToast('Töltsd ki az összes mezőt!', 'error'); return; }
   const btn = document.getElementById('login-btn');
   btn.disabled = true; btn.textContent = 'Bejelentkezés...';
@@ -1634,15 +1654,15 @@ async function doLogin() {
 window.doLogin = doLogin;
 
 async function doRegister() {
-  const name  = document.getElementById('reg-name').value.trim();
+  const name = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
-  const pass  = document.getElementById('reg-password').value;
+  const pass = document.getElementById('reg-password').value;
   const pass2 = document.getElementById('reg-password2').value;
-  const tos   = document.getElementById('reg-tos').checked;
+  const tos = document.getElementById('reg-tos').checked;
   if (!name || !email || !pass || !pass2) { showToast('Töltsd ki az összes mezőt!', 'error'); return; }
-  if (pass !== pass2)   { showToast('A jelszavak nem egyeznek!', 'error'); return; }
-  if (pass.length < 8)  { showToast('A jelszó legalább 8 karakter legyen!', 'error'); return; }
-  if (!tos)             { showToast('Fogadd el az ÁSZF-et!', 'error'); return; }
+  if (pass !== pass2) { showToast('A jelszavak nem egyeznek!', 'error'); return; }
+  if (pass.length < 8) { showToast('A jelszó legalább 8 karakter legyen!', 'error'); return; }
+  if (!tos) { showToast('Fogadd el az ÁSZF-et!', 'error'); return; }
   const btn = document.getElementById('register-btn');
   btn.disabled = true; btn.textContent = 'Regisztráció...';
   const { data, error } = await sb.auth.signUp({
@@ -1684,7 +1704,7 @@ async function doSocialLogin(provider) {
 window.doSocialLogin = doSocialLogin;
 
 function switchAuthTab(tab, btn) {
-  document.getElementById('auth-login').style.display    = tab === 'login'    ? 'block' : 'none';
+  document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
   document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none';
   document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
@@ -1709,10 +1729,11 @@ function renderProfile() {
   }
   const initials = (currentProfile.full_name || 'K').charAt(0).toUpperCase();
   document.getElementById('profile-avatar-initials').textContent = initials;
-  document.getElementById('profile-name').textContent  = currentProfile.full_name || '—';
+  document.getElementById('profile-name').textContent = currentProfile.full_name || '—';
   document.getElementById('profile-email').textContent = currentUser.email || '—';
   const roleMap = { admin: '🛡️ Admin', seller: '🏪 Eladó', user: '🛒 Vásárló' };
   document.getElementById('profile-role-badge').textContent = roleMap[currentProfile.role] || '';
+  
   if (currentProfile.avatar_url) {
     const img = document.getElementById('profile-avatar-img');
     img.src = currentProfile.avatar_url;
@@ -1721,10 +1742,13 @@ function renderProfile() {
   } else {
     document.getElementById('profile-avatar-initials').style.display = 'block';
   }
-  document.getElementById('modal-fullname').value   = currentProfile.full_name || '';
-  document.getElementById('modal-bio').value        = currentProfile.bio || '';
-  document.getElementById('modal-bank-acc').value   = currentProfile.bank_account || '';
-  document.getElementById('modal-bank-name').value  = currentProfile.bank_name || '';
+  
+  document.getElementById('modal-fullname').value = currentProfile.full_name || '';
+  document.getElementById('modal-bio').value = currentProfile.bio || '';
+  document.getElementById('modal-bank-acc').value = currentProfile.bank_account || '';
+  document.getElementById('modal-bank-name').value = currentProfile.bank_name || '';
+  document.getElementById('modal-paypal-email').value = currentProfile.paypal_email || '';
+  
   loadPurchaseHistory();
 }
 window.renderProfile = renderProfile;
@@ -1733,7 +1757,7 @@ async function loadPurchaseHistory() {
   if (!currentUser) return;
   try {
     const { data } = await sb.from('orders')
-      .select('*, products(name, emoji)')
+      .select('*, products(name)')
       .eq('buyer_id', currentUser.id)
       .order('created_at', { ascending: false })
       .limit(20);
@@ -1744,7 +1768,7 @@ async function loadPurchaseHistory() {
     }
     wrap.innerHTML = data.map(o => `
       <div class="purchase-item">
-        <div class="purchase-thumb">${esc(o.products?.emoji || '📦')}</div>
+        <div class="purchase-thumb">📦</div>
         <div style="flex:1">
           <div style="font-weight:600;font-size:.9rem">${esc(o.products?.name || 'Termék')}</div>
           <div style="color:var(--muted);font-size:.78rem">${new Date(o.created_at).toLocaleDateString('hu-HU')}</div>
@@ -1757,12 +1781,19 @@ async function loadPurchaseHistory() {
 async function saveProfileModal() {
   if (!currentUser) return;
   const fullName = document.getElementById('modal-fullname').value.trim();
-  const bio      = document.getElementById('modal-bio').value.trim();
-  const bankAcc  = document.getElementById('modal-bank-acc').value.trim();
+  const bio = document.getElementById('modal-bio').value.trim();
+  const bankAcc = document.getElementById('modal-bank-acc').value.trim();
   const bankName = document.getElementById('modal-bank-name').value.trim();
+  const paypalEmail = document.getElementById('modal-paypal-email').value.trim();
+  
   const { error } = await sb.from('profiles').update({
-    full_name: fullName, bio, bank_account: bankAcc, bank_name: bankName
+    full_name: fullName, 
+    bio, 
+    bank_account: bankAcc, 
+    bank_name: bankName,
+    paypal_email: paypalEmail
   }).eq('id', currentUser.id);
+  
   if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
   await loadProfile();
   updateNavForUser();
@@ -1774,13 +1805,22 @@ window.saveProfileModal = saveProfileModal;
 async function changePassword() {
   const np = document.getElementById('new-password').value;
   const cp = document.getElementById('confirm-password').value;
-  if (!np || !cp)    { showToast('Töltsd ki a jelszó mezőket!', 'error'); return; }
-  if (np !== cp)     { showToast('A jelszavak nem egyeznek!', 'error'); return; }
+  const msgDiv = document.getElementById('password-message');
+  
+  if (!np || !cp) { showToast('Töltsd ki a jelszó mezőket!', 'error'); return; }
+  if (np !== cp) { showToast('A jelszavak nem egyeznek!', 'error'); return; }
   if (np.length < 8) { showToast('Legalább 8 karakter szükséges!', 'error'); return; }
+  
   const { error } = await sb.auth.updateUser({ password: np });
   if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  
   showToast('✅ Jelszó megváltoztatva!');
-  document.getElementById('new-password').value     = '';
+  if (msgDiv) {
+    msgDiv.style.display = 'block';
+    msgDiv.textContent = '✅ Jelszó sikeresen megváltoztatva!';
+    setTimeout(() => msgDiv.style.display = 'none', 3000);
+  }
+  document.getElementById('new-password').value = '';
   document.getElementById('confirm-password').value = '';
 }
 window.changePassword = changePassword;
@@ -1789,17 +1829,26 @@ async function uploadAvatar(event) {
   const file = event.target.files[0];
   if (!file || !currentUser) return;
   if (file.size > 5 * 1024 * 1024) { showToast('Max. 5 MB!', 'error'); return; }
-  const ext  = file.name.split('.').pop().toLowerCase();
-  const path = `avatars/${currentUser.id}.${ext}`;
-  const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: true });
-  if (upErr) { showToast('Feltöltési hiba: ' + upErr.message, 'error'); return; }
-  const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path);
-  await sb.from('profiles').update({ avatar_url: publicUrl }).eq('id', currentUser.id);
-  const img = document.getElementById('profile-avatar-img');
-  img.src = publicUrl; 
-  img.style.display = 'block';
-  document.getElementById('profile-avatar-initials').style.display = 'none';
-  showToast('✅ Profilkép feltöltve!');
+  
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const path = `avatars/${currentUser.id}.${ext}`;
+    
+    const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: true });
+    if (upErr) throw upErr;
+    
+    const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path);
+    await sb.from('profiles').update({ avatar_url: publicUrl }).eq('id', currentUser.id);
+    
+    const img = document.getElementById('profile-avatar-img');
+    img.src = publicUrl; 
+    img.style.display = 'block';
+    document.getElementById('profile-avatar-initials').style.display = 'none';
+    showToast('✅ Profilkép feltöltve!');
+  } catch (e) {
+    console.error('Upload error:', e);
+    showToast('Feltöltési hiba: ' + (e.message || 'Ismeretlen hiba'), 'error');
+  }
 }
 window.uploadAvatar = uploadAvatar;
 
@@ -1826,7 +1875,7 @@ async function loadProducts() {
     updateStats();
     filterProducts();
   } catch (e) {
-    const msg = e?.message || e?.error_description || JSON.stringify(e) || 'Ismeretlen hiba';
+    const msg = e?.message || 'Ismeretlen hiba';
     console.warn('loadProducts hiba:', msg, e);
     document.getElementById('product-grid').innerHTML =
       '<p style="color:var(--muted);grid-column:1/-1;text-align:center;padding:40px">Nem sikerült betölteni a termékeket.<br><small>' + msg + '</small></p>';
@@ -1837,8 +1886,8 @@ window.loadProducts = loadProducts;
 function updateStats() {
   const sellers = new Set(allProducts.map(p => p.seller_id)).size;
   document.getElementById('stat-products').textContent = allProducts.length;
-  document.getElementById('stat-sellers').textContent  = sellers;
-  document.getElementById('stat-buyers').textContent   = Math.floor(allProducts.length * 2.3);
+  document.getElementById('stat-sellers').textContent = sellers;
+  document.getElementById('stat-buyers').textContent = Math.floor(allProducts.length * 2.3);
 }
 
 function filterCat(cat, el) {
@@ -1857,10 +1906,10 @@ function onSearchInput() {
 window.onSearchInput = onSearchInput;
 
 function filterProducts() {
-  const query       = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
-  const sort        = document.getElementById('sort-select')?.value  || 'default';
+  const query = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+  const sort = document.getElementById('sort-select')?.value || 'default';
   const priceFilter = document.getElementById('price-filter')?.value || 'all';
-  const ratingMin   = parseFloat(document.getElementById('rating-filter')?.value) || 0;
+  const ratingMin = parseFloat(document.getElementById('rating-filter')?.value) || 0;
 
   let list = allProducts.filter(p => {
     if (activeCategory !== 'mind' && p.category !== activeCategory) return false;
@@ -1877,11 +1926,11 @@ function filterProducts() {
   });
 
   switch (sort) {
-    case 'price-asc':  list.sort((a, b) => (a.sale_price||a.price) - (b.sale_price||b.price)); break;
+    case 'price-asc': list.sort((a, b) => (a.sale_price||a.price) - (b.sale_price||b.price)); break;
     case 'price-desc': list.sort((a, b) => (b.sale_price||b.price) - (a.sale_price||a.price)); break;
-    case 'rating':     list.sort((a, b) => (b.avg_rating||0) - (a.avg_rating||0)); break;
-    case 'sales':      list.sort((a, b) => (b.sales_count||0) - (a.sales_count||0)); break;
-    case 'newest':     list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); break;
+    case 'rating': list.sort((a, b) => (b.avg_rating||0) - (a.avg_rating||0)); break;
+    case 'sales': list.sort((a, b) => (b.sales_count||0) - (a.sales_count||0)); break;
+    case 'newest': list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); break;
   }
 
   const cnt = document.getElementById('product-count');
@@ -1901,11 +1950,11 @@ function renderProductGrid(list, gridId) {
 }
 
 function buildProductCard(p) {
-  const price      = parseFloat(p.sale_price || p.price || 0);
-  const origPrice  = p.sale_price ? parseFloat(p.price) : null;
-  const isWished   = wishlistIds.has(p.id);
-  const stars      = '⭐'.repeat(Math.round(p.avg_rating || 0));
-  const coverImg   = p.cover_url
+  const price = parseFloat(p.sale_price || p.price || 0);
+  const origPrice = p.sale_price ? parseFloat(p.price) : null;
+  const isWished = wishlistIds.has(p.id);
+  const stars = '⭐'.repeat(Math.round(p.avg_rating || 0));
+  const coverImg = p.cover_url
     ? `<img src="${esc(p.cover_url)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display=\'none\'">`
     : '';
 
@@ -1913,7 +1962,7 @@ function buildProductCard(p) {
     <div class="product-card" onclick="openProduct('${esc(p.id)}')">
       <div class="product-thumb">
         ${coverImg}
-        <span style="position:relative;z-index:1">${esc(p.emoji || '📦')}</span>
+        <span style="position:relative;z-index:1">📦</span>
         <div class="play-overlay"><div class="play-btn-sm">▶</div></div>
         ${p.sale_price ? '<div class="product-badge">🔥 Akció</div>' : ''}
         <button class="wish-btn ${isWished ? 'active' : ''}"
@@ -2017,8 +2066,7 @@ function renderProductDetail(p) {
   if (p.youtube_url) {
     const ytId = extractYouTubeId(p.youtube_url);
     if (ytId) {
-      document.getElementById('yt-iframe').src =
-        `https://www.youtube.com/embed/${ytId}?rel=0`;
+      document.getElementById('yt-iframe').src = `https://www.youtube.com/embed/${ytId}?rel=0`;
       document.getElementById('yt-wrap').style.display = 'block';
     }
   } else {
@@ -2034,12 +2082,12 @@ function extractYouTubeId(url) {
 function buildGallery(p) {
   const slidesEl = document.getElementById('swiper-slides');
   const thumbsEl = document.getElementById('gallery-thumbs');
-  const slides   = [];
+  const slides = [];
 
   if (p.cover_url) {
     slides.push({ type: 'img', src: p.cover_url, label: 'Borítókép' });
   } else {
-    slides.push({ type: 'emoji', val: p.emoji || '📦' });
+    slides.push({ type: 'emoji', val: '📦' });
   }
   (p.gallery || []).forEach((img, i) => slides.push({ type: 'img', src: img, label: `Kép ${i + 2}` }));
 
@@ -2081,13 +2129,13 @@ function updateThumbActive(i) {
 
 function openLightbox(i) {
   const slides = document.querySelectorAll('.swiper-slide');
-  const slide  = slides[i];
+  const slide = slides[i];
   if (!slide) return;
   const img = slide.querySelector('img');
-  const lc  = document.getElementById('lightbox-content');
+  const lc = document.getElementById('lightbox-content');
   lc.innerHTML = img
     ? `<img class="lightbox-img" src="${esc(img.src)}" alt="">`
-    : `<div style="font-size:8rem">${slide.textContent.trim()}</div>`;
+    : `<div style="font-size:8rem">📦</div>`;
   document.getElementById('lightbox').classList.add('open');
 }
 window.openLightbox = openLightbox;
@@ -2143,14 +2191,14 @@ async function loadReviews(productId) {
   const { data } = await sb.from('reviews')
     .select('*').eq('product_id', productId).order('created_at', { ascending: false });
   const reviews = data || [];
-  const total   = reviews.length;
-  const avg     = total ? (reviews.reduce((s, r) => s + r.stars, 0) / total) : 0;
+  const total = reviews.length;
+  const avg = total ? (reviews.reduce((s, r) => s + r.stars, 0) / total) : 0;
   document.getElementById('avg-rating').textContent = avg ? avg.toFixed(1) : '—';
 
   for (let s = 1; s <= 5; s++) {
     const cnt = reviews.filter(r => r.stars === s).length;
     const pct = total ? Math.round((cnt / total) * 100) : 0;
-    document.getElementById(`rbar${s}`).style.width    = pct + '%';
+    document.getElementById(`rbar${s}`).style.width = pct + '%';
     document.getElementById(`rbar${s}pct`).textContent = pct + '%';
   }
 
@@ -2204,7 +2252,7 @@ window.submitReview = submitReview;
    §13  Q&A
 ════════════════════════════════════════════ */
 async function loadQA(productId) {
-  const { data } = await sb.from('qas')
+  const { data } = await sb.from('qa')
     .select('*').eq('product_id', productId).order('created_at', { ascending: false });
   document.getElementById('qa-list').innerHTML = (data || []).map(q => `
     <div class="qa-item">
@@ -2216,13 +2264,13 @@ async function loadQA(productId) {
 async function submitQA() {
   if (!currentProduct) return;
   const name = document.getElementById('qa-name').value.trim();
-  const q    = document.getElementById('qa-question').value.trim();
+  const q = document.getElementById('qa-question').value.trim();
   if (!name || !q) { showToast('Töltsd ki a kérdés mezőket!', 'error'); return; }
-  const { error } = await sb.from('qas').insert({
+  const { error } = await sb.from('qa').insert({
     product_id: currentProduct.id, name, question: q, user_id: currentUser?.id || null
   });
   if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
-  document.getElementById('qa-name').value     = '';
+  document.getElementById('qa-name').value = '';
   document.getElementById('qa-question').value = '';
   showToast('✅ Kérdés elküldve!');
   loadQA(currentProduct.id);
@@ -2249,11 +2297,10 @@ function saveCartToStorage() {
 function addToCart(product) {
   if (!product) return;
   const item = sanitizeCartItem({
-    id:          product.id,
-    name:        product.name,
-    price:       parseFloat(product.sale_price || product.price),
-    emoji:       product.emoji,
-    seller_id:   product.seller_id,
+    id: product.id,
+    name: product.name,
+    price: parseFloat(product.sale_price || product.price),
+    seller_id: product.seller_id,
     seller_name: product.profiles?.full_name || ''
   });
   if (!item) { showToast('Érvénytelen termék!', 'error'); return; }
@@ -2282,22 +2329,40 @@ function removeFromCart(id) {
 window.removeFromCart = removeFromCart;
 
 function renderCart() {
-  const wrap     = document.getElementById('cart-items');
-  const summary  = document.getElementById('cart-summary-box');
-  const empty    = document.getElementById('cart-empty');
+  const wrap = document.getElementById('cart-items');
+  const summary = document.getElementById('cart-summary-box');
+  const empty = document.getElementById('cart-empty');
 
   if (!cart.length) {
-    if (wrap)    wrap.innerHTML    = '';
+    if (wrap) wrap.innerHTML = '';
     if (summary) summary.innerHTML = '';
-    if (empty)   empty.style.display = 'block';
+    if (empty) empty.style.display = 'block';
     return;
   }
   if (empty) empty.style.display = 'none';
 
+  const subtotal = cart.reduce((s, c) => s + c.price, 0);
+  
+  // Kedvezmény számítása a kupon típusa alapján
+  let discount = 0;
+  let discountText = '';
+  
+  if (couponApplied) {
+    if (couponApplied.type === 'fixed') {
+      discount = Math.min(couponApplied.fixedAmount, subtotal);
+      discountText = `Kupon (${couponApplied.fixedAmount.toLocaleString('hu-HU')} Ft)`;
+    } else {
+      discount = Math.round(subtotal * (couponApplied.pct / 100));
+      discountText = `Kupon (${couponApplied.pct}%)`;
+    }
+  }
+  
+  const total = subtotal - discount;
+
   if (wrap) {
     wrap.innerHTML = cart.map(item => `
       <div class="cart-item">
-        <div class="cart-thumb">${esc(item.emoji || '📦')}</div>
+        <div class="cart-thumb">📦</div>
         <div class="cart-item-info">
           <div class="name">${esc(item.name)}</div>
           <div class="seller">👤 ${esc(item.seller_name || '—')}</div>
@@ -2307,9 +2372,22 @@ function renderCart() {
       </div>`).join('');
   }
 
+  if (summary) {
+    summary.innerHTML = `
+      <div class="cart-summary">
+        <div class="cart-row"><span>Részösszeg</span><span>${subtotal.toLocaleString('hu-HU')} Ft</span></div>
+        ${discount ? `<div class="cart-row discount"><span>${discountText}</span><span>-${discount.toLocaleString('hu-HU')} Ft</span></div>` : ''}
+        <div class="cart-row total"><span>Összesen</span><span>${total.toLocaleString('hu-HU')} Ft</span></div>
+        <button class="btn btn-primary btn-full btn-lg" style="margin-top:16px" onclick="showPage('checkout')">
+          💳 Pénztárhoz
+        </button>
+      </div>`;
+  }
+}
+
   const subtotal = cart.reduce((s, c) => s + c.price, 0);
   const discount = couponApplied ? Math.round(subtotal * (couponApplied.pct / 100)) : 0;
-  const total    = subtotal - discount;
+  const total = subtotal - discount;
 
   if (summary) {
     summary.innerHTML = `
@@ -2325,26 +2403,97 @@ function renderCart() {
 }
 
 /* ════════════════════════════════════════════
-   §15  COUPON
+   §15  COUPON - VALÓDI ADATBÁZIS MEGOLDÁS
 ════════════════════════════════════════════ */
-const DEMO_COUPONS = { DEMO10: 10, DIGIPIAC20: 20, WELCOME15: 15 };
-
 async function applyCoupon() {
   const code = (document.getElementById('coupon-input')?.value || '').trim().toUpperCase();
   const statusEl = document.getElementById('coupon-status');
   if (!code) return;
-  // Adatbázisból ellenőrzés
-  const { data } = await sb.from('coupons')
-    .select('*').eq('code', code).eq('active', true).single();
-  let pct = data?.discount_pct;
-  if (!pct && DEMO_COUPONS[code]) pct = DEMO_COUPONS[code]; // demo fallback
-  if (pct) {
-    couponApplied = { code, pct };
-    if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">✅ ${pct}% kedvezmény alkalmazva!</span>`;
+  
+  try {
+    // CSAK adatbázisból ellenőrizzük - NINCS DEMÓ!!!
+    const { data, error } = await sb
+      .from('coupons')
+      .select('*')
+      .eq('code', code)
+      .eq('is_active', true)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Coupon query error:', error);
+      couponApplied = null;
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">❌ Rendszerhiba</span>`;
+      return;
+    }
+    
+    // Ha nincs ilyen kupon az adatbázisban
+    if (!data) {
+      couponApplied = null;
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">❌ Érvénytelen kuponkód</span>`;
+      renderCart();
+      return;
+    }
+    
+    // Kupont használatának ellenőrzése
+    if (data.max_uses && data.used_count >= data.max_uses) {
+      couponApplied = null;
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">❌ A kupon már felhasználva</span>`;
+      renderCart();
+      return;
+    }
+    
+    // Kedvezmény számítása a kosár értékéből
+    const subtotal = cart.reduce((s, c) => s + c.price, 0);
+    
+    if (data.type === 'pct' || data.type === 'percentage') {
+      // Százalékos kupon
+      const pct = data.value;
+      const discountAmount = Math.round(subtotal * (pct / 100));
+      
+      couponApplied = { 
+        id: data.id,
+        code: data.code, 
+        pct, 
+        type: 'percentage',
+        discountAmount 
+      };
+      
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">✅ ${pct}% kedvezmény (${discountAmount.toLocaleString('hu-HU')} Ft)</span>`;
+      
+    } else if (data.type === 'fixed') {
+      // Fix összegű kupon
+      const discountAmount = Math.min(data.value, subtotal);
+      const pct = Math.round((discountAmount / subtotal) * 100);
+      
+      couponApplied = { 
+        id: data.id,
+        code: data.code, 
+        fixedAmount: data.value, 
+        pct, 
+        type: 'fixed',
+        discountAmount 
+      };
+      
+      if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">✅ ${data.value.toLocaleString('hu-HU')} Ft kedvezmény (${pct}%)</span>`;
+    }
+    
+    // Kupont használatának növelése azonnal
+    const { error: updateError } = await sb
+      .from('coupons')
+      .update({ used_count: (data.used_count || 0) + 1 })
+      .eq('id', data.id);
+    
+    if (updateError) {
+      console.error('Failed to update coupon usage:', updateError);
+    }
+    
+    // Kosár újrarajzolása
     renderCart();
-  } else {
+    
+  } catch (e) {
+    console.error('Coupon error:', e);
     couponApplied = null;
-    if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">❌ Érvénytelen kupon</span>`;
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">❌ Rendszerhiba</span>`;
   }
 }
 window.applyCoupon = applyCoupon;
@@ -2353,7 +2502,7 @@ window.applyCoupon = applyCoupon;
    §16  CHECKOUT SUMMARY
 ════════════════════════════════════════════ */
 function renderCheckoutSummary() {
-  const wrap     = document.getElementById('checkout-summary');
+  const wrap = document.getElementById('checkout-summary');
   const emailInp = document.getElementById('co-email');
   if (!wrap) return;
   if (!cart.length) {
@@ -2361,11 +2510,11 @@ function renderCheckoutSummary() {
   }
   const subtotal = cart.reduce((s, c) => s + c.price, 0);
   const discount = couponApplied ? Math.round(subtotal * (couponApplied.pct / 100)) : 0;
-  const total    = subtotal - discount;
+  const total = subtotal - discount;
   wrap.innerHTML = `
     ${cart.map(c => `
       <div class="cart-row">
-        <span>${esc(c.emoji || '📦')} ${esc(c.name)}</span>
+        <span>📦 ${esc(c.name)}</span>
         <span>${Number(c.price).toLocaleString('hu-HU')} Ft</span>
       </div>`).join('')}
     ${discount ? `<div class="cart-row discount"><span>Kupon (-${couponApplied.pct}%)</span><span>-${discount.toLocaleString('hu-HU')} Ft</span></div>` : ''}
@@ -2376,10 +2525,19 @@ function renderCheckoutSummary() {
 window.renderCheckoutSummary = renderCheckoutSummary;
 
 /* ════════════════════════════════════════════
-   §17  STRIPE CHECKOUT
+   §17  PAYMENT
 ════════════════════════════════════════════ */
+function initiatePayment() {
+  const method = document.querySelector('input[name="payment-method"]:checked')?.value;
+  if (method === 'stripe') {
+    initiateStripeCheckout();
+  } else if (method === 'paypal') {
+    initiatePaypalCheckout();
+  }
+}
+window.initiatePayment = initiatePayment;
+
 async function initiateStripeCheckout() {
-  // GDPR checkbox-ok kötelező validációja
   const gdpr1 = document.getElementById('gdpr1')?.checked;
   const gdpr2 = document.getElementById('gdpr2')?.checked;
   const gdpr3 = document.getElementById('gdpr3')?.checked;
@@ -2395,10 +2553,9 @@ async function initiateStripeCheckout() {
   const btn = document.getElementById('pay-btn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Átirányítás...'; }
 
-  // Demo mód: ha még nincs Stripe kulcs konfigurálva
   if (STRIPE_PUBLISHABLE_KEY.includes('REPLACE')) {
     setTimeout(() => {
-      if (btn) { btn.disabled = false; btn.textContent = '🔒 Biztonságos fizetés a Stripe-on'; }
+      if (btn) { btn.disabled = false; btn.textContent = '🔒 Tovább a fizetéshez'; }
       cart = []; saveCartToStorage(); updateCounts();
       showSuccessPage([]);
     }, 1500);
@@ -2406,7 +2563,6 @@ async function initiateStripeCheckout() {
   }
 
   try {
-    // Valódi Stripe Checkout session létrehozása
     const lineItems = cart.map(item => ({
       price_data: {
         currency: 'huf',
@@ -2426,11 +2582,11 @@ async function initiateStripeCheckout() {
         lineItems,
         customerEmail: email,
         successUrl: `${window.location.origin}?stripe_success=1`,
-        cancelUrl:  `${window.location.origin}?stripe_cancel=1`,
+        cancelUrl: `${window.location.origin}?stripe_cancel=1`,
         metadata: {
-          buyer_id:  currentUser?.id || '',
-          cart_ids:  cart.map(c => c.id).join(','),
-          coupon:    couponApplied?.code || ''
+          buyer_id: currentUser?.id || '',
+          cart_ids: cart.map(c => c.id).join(','),
+          coupon: couponApplied?.code || ''
         }
       })
     });
@@ -2441,7 +2597,6 @@ async function initiateStripeCheckout() {
     }
 
     const { sessionId } = await resp.json();
-
     const stripe = getStripe();
     if (!stripe) throw new Error('Stripe nem inicializálható.');
     const { error } = await stripe.redirectToCheckout({ sessionId });
@@ -2450,10 +2605,33 @@ async function initiateStripeCheckout() {
   } catch (err) {
     console.error('Stripe checkout error:', err);
     showToast('Fizetési hiba: ' + (err.message || 'Ismeretlen hiba'), 'error');
-    if (btn) { btn.disabled = false; btn.textContent = '🔒 Biztonságos fizetés a Stripe-on'; }
+    if (btn) { btn.disabled = false; btn.textContent = '🔒 Tovább a fizetéshez'; }
   }
 }
 window.initiateStripeCheckout = initiateStripeCheckout;
+
+function initiatePaypalCheckout() {
+  const gdpr1 = document.getElementById('gdpr1')?.checked;
+  const gdpr2 = document.getElementById('gdpr2')?.checked;
+  const gdpr3 = document.getElementById('gdpr3')?.checked;
+  if (!gdpr1) { showToast('Az ÁSZF elfogadása kötelező!', 'error'); return; }
+  if (!gdpr2) { showToast('Az Adatvédelmi irányelvek elfogadása kötelező!', 'error'); return; }
+  if (!gdpr3) { showToast('A digitális tartalom azonnali hozzáféréséhez való hozzájárulás kötelező!', 'error'); return; }
+
+  if (!cart.length) { showToast('A kosár üres!', 'error'); return; }
+
+  const total = cart.reduce((s, c) => s + c.price, 0);
+  const discount = couponApplied ? Math.round(total * (couponApplied.pct / 100)) : 0;
+  const finalTotal = (total - discount) / 100; // PayPal fillérben várja?
+
+  showToast('🔜 PayPal fizetés indul...', 'info');
+  
+  setTimeout(() => {
+    cart = []; saveCartToStorage(); updateCounts();
+    showSuccessPage([]);
+  }, 2000);
+}
+window.initiatePaypalCheckout = initiatePaypalCheckout;
 
 /* ════════════════════════════════════════════
    §18  STRIPE RETURN HANDLER
@@ -2461,17 +2639,15 @@ window.initiateStripeCheckout = initiateStripeCheckout;
 async function handleStripeReturn() {
   const params = new URLSearchParams(window.location.search);
 
-  // Sikeres fizetés visszatérés
   if (params.has('stripe_success')) {
     window.history.replaceState({}, '', window.location.pathname);
-
     cart = []; saveCartToStorage(); updateCounts();
 
     let downloadItems = [];
     if (currentUser) {
       try {
         const { data } = await sb.from('orders')
-          .select('*, products(name, emoji, download_url)')
+          .select('*, products(name, download_url)')
           .eq('buyer_id', currentUser.id)
           .eq('status', 'paid')
           .order('created_at', { ascending: false })
@@ -2484,7 +2660,6 @@ async function handleStripeReturn() {
     return;
   }
 
-  // Megszakított fizetés visszatérés
   if (params.has('stripe_cancel')) {
     window.history.replaceState({}, '', window.location.pathname);
     showToast('A fizetést megszakítottad.', 'info');
@@ -2502,7 +2677,7 @@ function showSuccessPage(orders) {
         const dl = o.products?.download_url;
         return `
           <div class="dl-item">
-            <span>${esc(o.products?.emoji || '📦')} ${esc(o.products?.name || 'Termék')}</span>
+            <span>📦 ${esc(o.products?.name || 'Termék')}</span>
             ${dl
               ? `<a href="${esc(dl)}" class="btn btn-success" style="padding:5px 14px;font-size:.78rem" download>⬇ Letöltés</a>`
               : `<span style="color:var(--muted);font-size:.78rem">Hamarosan</span>`}
@@ -2549,7 +2724,7 @@ function renderWishlist() {
   const empty = document.getElementById('wish-empty');
   const wished = allProducts.filter(p => wishlistIds.has(p.id));
   if (!wished.length) {
-    if (grid)  grid.innerHTML = '';
+    if (grid) grid.innerHTML = '';
     if (empty) empty.style.display = 'block';
     return;
   }
@@ -2583,51 +2758,49 @@ window.handleFileSelect = handleFileSelect;
 
 function updatePricePreview() {
   const price = parseFloat(document.getElementById('sell-price')?.value) || 0;
-  const sale  = parseFloat(document.getElementById('sell-sale-price')?.value) || 0;
-  const eff   = sale && sale < price ? sale : price;
+  const sale = parseFloat(document.getElementById('sell-sale-price')?.value) || 0;
+  const eff = sale && sale < price ? sale : price;
   if (!eff) return;
-  const fee  = Math.round(eff * 0.15);
-  const vat  = Math.round(eff * 0.27 / 1.27);
-  const you  = eff - fee;
-  const fmt  = n => n.toLocaleString('hu-HU') + ' Ft';
+  const fee = Math.round(eff * 0.15);
+  const vat = Math.round(eff * 0.27 / 1.27);
+  const you = eff - fee;
+  const fmt = n => n.toLocaleString('hu-HU') + ' Ft';
   document.getElementById('pp-price').textContent = fmt(eff);
-  document.getElementById('pp-fee').textContent   = fmt(fee);
-  document.getElementById('pp-vat').textContent   = fmt(vat);
-  document.getElementById('pp-you').textContent   = fmt(you);
+  document.getElementById('pp-fee').textContent = fmt(fee);
+  document.getElementById('pp-vat').textContent = fmt(vat);
+  document.getElementById('pp-you').textContent = fmt(you);
 }
 window.updatePricePreview = updatePricePreview;
 
 async function submitProduct() {
   if (!currentUser) { openModal('modal-auth'); return; }
-  const name  = document.getElementById('sell-name')?.value.trim();
-  const desc  = document.getElementById('sell-desc')?.value.trim();
-  const cat   = document.getElementById('sell-cat')?.value;
+  const name = document.getElementById('sell-name')?.value.trim();
+  const desc = document.getElementById('sell-desc')?.value.trim();
+  const cat = document.getElementById('sell-cat')?.value;
   const price = parseFloat(document.getElementById('sell-price')?.value);
-  const sale  = parseFloat(document.getElementById('sell-sale-price')?.value) || null;
-  const emoji = document.getElementById('sell-emoji')?.value.trim() || '📦';
-  const tags  = (document.getElementById('sell-tags')?.value || '').split(',').map(t => t.trim()).filter(Boolean);
-  const yt    = document.getElementById('sell-yt')?.value.trim() || null;
-  const aff   = parseFloat(document.getElementById('sell-aff')?.value) || 20;
+  const sale = parseFloat(document.getElementById('sell-sale-price')?.value) || null;
+  const tags = (document.getElementById('sell-tags')?.value || '').split(',').map(t => t.trim()).filter(Boolean);
+  const yt = document.getElementById('sell-yt')?.value.trim() || null;
+  const aff = parseFloat(document.getElementById('sell-aff')?.value) || 20;
+  const msgDiv = document.getElementById('product-message');
 
   if (!name || !desc || !cat) { showToast('Töltsd ki a kötelező mezőket!', 'error'); return; }
-  if (!price || price < 500)  { showToast('Az ár minimum 500 Ft!', 'error'); return; }
-  if (!pendingFileUpload)     { showToast('Tölts fel egy fájlt!', 'error'); return; }
+  if (!price || price < 500) { showToast('Az ár minimum 500 Ft!', 'error'); return; }
+  if (!pendingFileUpload) { showToast('Tölts fel egy fájlt!', 'error'); return; }
 
   const btn = document.getElementById('publish-btn');
   btn.disabled = true; btn.textContent = '⏳ Feltöltés...';
 
   try {
-    // Fájl feltöltése
-    const fileExt  = pendingFileUpload.name.split('.').pop();
+    const fileExt = pendingFileUpload.name.split('.').pop();
     const filePath = `products/${currentUser.id}/${Date.now()}.${fileExt}`;
     const { error: fileErr } = await sb.storage.from('products').upload(filePath, pendingFileUpload);
     if (fileErr) throw fileErr;
     const { data: { publicUrl: fileUrl } } = sb.storage.from('products').getPublicUrl(filePath);
 
-    // Borítókép feltöltése (opcionális)
     let coverUrl = null;
     if (pendingCoverFile) {
-      const coverExt  = pendingCoverFile.name.split('.').pop();
+      const coverExt = pendingCoverFile.name.split('.').pop();
       const coverPath = `covers/${currentUser.id}/${Date.now()}.${coverExt}`;
       const { error: coverErr } = await sb.storage.from('covers').upload(coverPath, pendingCoverFile);
       if (!coverErr) {
@@ -2638,13 +2811,19 @@ async function submitProduct() {
 
     const { error: dbErr } = await sb.from('products').insert({
       seller_id: currentUser.id, name, description: desc, category: cat,
-      price, sale_price: sale, emoji, tags, youtube_url: yt,
+      price, sale_price: sale, tags, youtube_url: yt,
       affiliate_pct: aff, status: 'pending',
       file_url: fileUrl, cover_url: coverUrl
     });
     if (dbErr) throw dbErr;
 
     showToast('✅ Termék feltöltve! Jóváhagyásra vár.');
+    if (msgDiv) {
+      msgDiv.style.display = 'block';
+      msgDiv.textContent = '✅ Termék sikeresen feltöltve! Hamarosan jóváhagyjuk.';
+      setTimeout(() => msgDiv.style.display = 'none', 5000);
+    }
+    
     btn.disabled = false; btn.textContent = '🚀 Termék közzététele';
     pendingFileUpload = pendingCoverFile = null;
     showPage('dashboard');
@@ -2668,17 +2847,17 @@ async function loadDashboard() {
       sb.from('orders').select('*').eq('seller_id', currentUser.id)
     ]);
     const products = productsRes.data || [];
-    const orders   = ordersRes.data  || [];
-    const revenue  = orders.filter(o => o.status === 'paid').reduce((s, o) => s + Number(o.amount || 0), 0);
-    const balance  = Number(currentProfile?.balance || 0);
-    const ratings  = products.filter(p => p.avg_rating).map(p => p.avg_rating);
+    const orders = ordersRes.data || [];
+    const revenue = orders.filter(o => o.status === 'paid').reduce((s, o) => s + Number(o.amount || 0), 0);
+    const balance = Number(currentProfile?.balance || 0);
+    const ratings = products.filter(p => p.avg_rating).map(p => p.avg_rating);
     const avgRating = ratings.length ? (ratings.reduce((s, r) => s + r, 0) / ratings.length).toFixed(1) : '—';
 
-    document.getElementById('dash-revenue').textContent  = revenue.toLocaleString('hu-HU') + ' Ft';
-    document.getElementById('dash-sales').textContent    = orders.length;
-    document.getElementById('dash-rating').textContent   = avgRating;
+    document.getElementById('dash-revenue').textContent = revenue.toLocaleString('hu-HU') + ' Ft';
+    document.getElementById('dash-sales').textContent = orders.length;
+    document.getElementById('dash-rating').textContent = avgRating;
     document.getElementById('dash-products').textContent = products.filter(p => p.status === 'active').length;
-    document.getElementById('dash-balance').textContent  = balance.toLocaleString('hu-HU') + ' Ft';
+    document.getElementById('dash-balance').textContent = balance.toLocaleString('hu-HU') + ' Ft';
 
     renderMyProductsTable(products);
     renderMySalesTable(orders.slice(0, 15));
@@ -2692,7 +2871,7 @@ function renderMyProductsTable(products) {
   if (!tbody) return;
   tbody.innerHTML = products.length ? products.map(p => `
     <tr>
-      <td>${esc(p.emoji || '📦')} ${esc(p.name)}</td>
+      <td>📦 ${esc(p.name)}</td>
       <td>${Number(p.sale_price || p.price || 0).toLocaleString('hu-HU')} Ft</td>
       <td>${p.sales_count || 0}</td>
       <td><span class="status-badge ${p.status === 'active' ? 'paid' : 'pending'}">${esc(STATUS_MAP[p.status] || p.status)}</span></td>
@@ -2708,7 +2887,7 @@ function renderMySalesTable(orders) {
   if (!tbody) return;
   tbody.innerHTML = orders.length ? orders.map(o => `
     <tr>
-      <td>${esc(o.product_name || 'Termék')}</td>
+      <td>📦 ${esc(o.product_name || 'Termék')}</td>
       <td>${esc(o.buyer_email || '—')}</td>
       <td>${new Date(o.created_at).toLocaleDateString('hu-HU')}</td>
       <td>${Number(o.amount || 0).toLocaleString('hu-HU')} Ft</td>
@@ -2721,8 +2900,8 @@ function initRevenueChart(orders) {
   const canvas = document.getElementById('revenue-chart');
   if (!canvas || !window.Chart) return;
   const months = [];
-  const data   = [];
-  const now    = new Date();
+  const data = [];
+  const now = new Date();
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     months.push(d.toLocaleDateString('hu-HU', { month: 'short' }));
@@ -2755,12 +2934,12 @@ async function loadAdmin() {
       sb.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active'),
       sb.from('products').select('*', { count: 'exact', head: true }).eq('status', 'pending')
     ]);
-    document.getElementById('admin-stat-users').textContent    = usersRes.count   || 0;
+    document.getElementById('admin-stat-users').textContent = usersRes.count || 0;
     document.getElementById('admin-stat-products').textContent = productsRes.count || 0;
-    document.getElementById('admin-stat-pending').textContent  = pendingRes.count  || 0;
-    document.getElementById('admin-stat-sellers').textContent  = '—';
-    document.getElementById('admin-stat-reports').textContent  = '0';
-    document.getElementById('admin-stat-revenue').textContent  = '—';
+    document.getElementById('admin-stat-pending').textContent = pendingRes.count || 0;
+    document.getElementById('admin-stat-sellers').textContent = '—';
+    document.getElementById('admin-stat-reports').textContent = '0';
+    document.getElementById('admin-stat-revenue').textContent = '—';
 
     loadAdminPending();
   } catch (e) { console.warn('loadAdmin:', e); }
@@ -2774,13 +2953,13 @@ async function loadAdminPending() {
   if (!wrap) return;
   wrap.innerHTML = (data || []).map(p => `
     <div class="pending-product">
-      <div style="font-size:2rem">${esc(p.emoji || '📦')}</div>
+      <div style="font-size:2rem">📦</div>
       <div style="flex:1">
         <div style="font-weight:700">${esc(p.name)}</div>
         <div style="color:var(--muted);font-size:.78rem">👤 ${esc(p.profiles?.full_name || '—')} · ${Number(p.price || 0).toLocaleString('hu-HU')} Ft</div>
       </div>
       <button class="btn btn-success" onclick="approveProduct('${esc(p.id)}')">✅ Jóváhagyás</button>
-      <button class="btn btn-danger"  onclick="rejectProduct('${esc(p.id)}')">❌ Elutasítás</button>
+      <button class="btn btn-danger" onclick="rejectProduct('${esc(p.id)}')">❌ Elutasítás</button>
     </div>`).join('') || '<p style="color:var(--muted)">Nincs jóváhagyásra váró termék.</p>';
 }
 window.loadAdminPending = loadAdminPending;
@@ -2834,10 +3013,10 @@ function switchAdminTab(tab, btn) {
   document.getElementById('admin-' + tab)?.classList.add('active');
   btn.classList.add('active');
   const loaders = {
-    users:    searchAdminUsers,
+    users: searchAdminUsers,
     products: loadAdminProducts,
-    finance:  loadAdminFinance,
-    tickets:  loadAdminTickets
+    finance: loadAdminFinance,
+    tickets: loadAdminTickets
   };
   if (loaders[tab]) loaders[tab]();
 }
@@ -2850,7 +3029,7 @@ async function loadAdminProducts() {
   if (!tbody) return;
   tbody.innerHTML = (data || []).map(p => `
     <tr>
-      <td>${esc(p.emoji || '📦')} ${esc(p.name)}</td>
+      <td>📦 ${esc(p.name)}</td>
       <td>${esc(p.profiles?.full_name || '—')}</td>
       <td>${Number(p.price || 0).toLocaleString('hu-HU')} Ft</td>
       <td>${p.sales_count || 0}</td>
@@ -2912,12 +3091,22 @@ window.closeTicket = closeTicket;
 /* ════════════════════════════════════════════
    §23  PAYOUT
 ════════════════════════════════════════════ */
+function selectPayoutMethod(method) {
+  selectedPayoutMethod = method;
+  document.getElementById('method-bank').classList.toggle('selected', method === 'bank');
+  document.getElementById('method-paypal').classList.toggle('selected', method === 'paypal');
+  document.getElementById('bank-details').style.display = method === 'bank' ? 'block' : 'none';
+  document.getElementById('paypal-details').style.display = method === 'paypal' ? 'block' : 'none';
+}
+window.selectPayoutMethod = selectPayoutMethod;
+
 async function loadPayout() {
   if (!currentUser || !currentProfile) return;
   const balance = Number(currentProfile.balance || 0);
   document.getElementById('payout-balance-amount').textContent = balance.toLocaleString('hu-HU') + ' Ft';
-  document.getElementById('payout-bank-acc').value  = currentProfile.bank_account || '';
-  document.getElementById('payout-bank-name').value = currentProfile.bank_name    || '';
+  document.getElementById('payout-bank-acc').value = currentProfile.bank_account || '';
+  document.getElementById('payout-bank-name').value = currentProfile.bank_name || '';
+  document.getElementById('payout-paypal-email').value = currentProfile.paypal_email || '';
 
   const { data } = await sb.from('payouts').select('*')
     .eq('user_id', currentUser.id).order('created_at', { ascending: false });
@@ -2934,33 +3123,73 @@ async function loadPayout() {
 }
 window.loadPayout = loadPayout;
 
-async function requestPayout() {
-  if (!currentUser) return;
-  const balance = Number(currentProfile?.balance || 0);
-  if (balance < 5000) { showToast('Minimum 5 000 Ft szükséges a kifizetéshez!', 'error'); return; }
-  const { error } = await sb.from('payouts').insert({
-    user_id: currentUser.id, amount: balance, status: 'pending', method: 'Banki átutalás'
-  });
-  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
-  await sb.from('profiles').update({ balance: 0 }).eq('id', currentUser.id);
-  await loadProfile();
-  showToast('✅ Kifizetés igényelve!');
-  loadPayout();
-}
-window.requestPayout = requestPayout;
-
 async function saveBankDetails() {
   if (!currentUser) return;
-  const acc  = document.getElementById('payout-bank-acc')?.value.trim();
+  const acc = document.getElementById('payout-bank-acc')?.value.trim();
   const name = document.getElementById('payout-bank-name')?.value.trim();
+  const msgDiv = document.getElementById('bank-save-message');
+  
   const { error } = await sb.from('profiles').update({
     bank_account: acc, bank_name: name
   }).eq('id', currentUser.id);
+  
   if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
   await loadProfile();
   showToast('✅ Bankadatok mentve!');
+  if (msgDiv) {
+    msgDiv.style.display = 'block';
+    msgDiv.textContent = '✅ Bankadatok sikeresen mentve!';
+    setTimeout(() => msgDiv.style.display = 'none', 3000);
+  }
 }
 window.saveBankDetails = saveBankDetails;
+
+async function savePaypalDetails() {
+  if (!currentUser) return;
+  const email = document.getElementById('payout-paypal-email')?.value.trim();
+  const msgDiv = document.getElementById('paypal-save-message');
+  
+  const { error } = await sb.from('profiles').update({
+    paypal_email: email
+  }).eq('id', currentUser.id);
+  
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  await loadProfile();
+  showToast('✅ PayPal email mentve!');
+  if (msgDiv) {
+    msgDiv.style.display = 'block';
+    msgDiv.textContent = '✅ PayPal email sikeresen mentve!';
+    setTimeout(() => msgDiv.style.display = 'none', 3000);
+  }
+}
+window.savePaypalDetails = savePaypalDetails;
+
+async function requestPayout() {
+  if (!currentUser) return;
+  const balance = Number(currentProfile?.balance || 0);
+  const msgDiv = document.getElementById('payout-message');
+  
+  if (balance < 5000) { showToast('Minimum 5 000 Ft szükséges a kifizetéshez!', 'error'); return; }
+  
+  const method = selectedPayoutMethod === 'bank' ? 'Banki átutalás' : 'PayPal';
+  
+  const { error } = await sb.from('payouts').insert({
+    user_id: currentUser.id, amount: balance, status: 'pending', method
+  });
+  
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  await sb.from('profiles').update({ balance: 0 }).eq('id', currentUser.id);
+  await loadProfile();
+  
+  showToast('✅ Kifizetés igényelve!');
+  if (msgDiv) {
+    msgDiv.style.display = 'block';
+    msgDiv.textContent = `✅ ${balance.toLocaleString('hu-HU')} Ft kifizetés igénylése sikeres!`;
+    setTimeout(() => msgDiv.style.display = 'none', 5000);
+  }
+  loadPayout();
+}
+window.requestPayout = requestPayout;
 
 /* ════════════════════════════════════════════
    §24  AFFILIATE
@@ -2977,20 +3206,20 @@ async function loadAffiliate() {
     .select('*').eq('affiliate_user_id', currentUser.id);
 
   const totalClicks = clicks?.length || 0;
-  const totalConvs  = convs?.length || 0;
-  const totalEarn   = (convs || []).reduce((s, c) => s + Number(c.commission || 0), 0);
-  const rate        = totalClicks ? ((totalConvs / totalClicks) * 100).toFixed(1) + '%' : '0%';
+  const totalConvs = convs?.length || 0;
+  const totalEarn = (convs || []).reduce((s, c) => s + Number(c.commission || 0), 0);
+  const rate = totalClicks ? ((totalConvs / totalClicks) * 100).toFixed(1) + '%' : '0%';
 
   document.getElementById('aff-total-earn').textContent = totalEarn.toLocaleString('hu-HU') + ' Ft';
-  document.getElementById('aff-clicks').textContent      = totalClicks;
+  document.getElementById('aff-clicks').textContent = totalClicks;
   document.getElementById('aff-conversions').textContent = totalConvs;
-  document.getElementById('aff-rate').textContent        = rate;
+  document.getElementById('aff-rate').textContent = rate;
 
   const tbody = document.getElementById('aff-conversions-table');
   if (tbody) {
     tbody.innerHTML = (convs || []).map(c => `
       <tr>
-        <td>${esc(c.product_name || '—')}</td>
+        <td>📦 ${esc(c.product_name || '—')}</td>
         <td>${new Date(c.created_at).toLocaleDateString('hu-HU')}</td>
         <td>${Number(c.sale_price || 0).toLocaleString('hu-HU')} Ft</td>
         <td>${Number(c.commission || 0).toLocaleString('hu-HU')} Ft</td>
@@ -3006,8 +3235,8 @@ function initAffChart(convs) {
   const canvas = document.getElementById('aff-chart');
   if (!canvas || !window.Chart) return;
   const labels = [];
-  const data   = [];
-  const now    = new Date();
+  const data = [];
+  const now = new Date();
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
     labels.push(d.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' }));
@@ -3042,7 +3271,7 @@ async function openSeller(sellerId) {
   if (!profile) { showToast('Eladó nem található.', 'error'); return; }
 
   document.getElementById('seller-name').textContent = profile.full_name || '—';
-  document.getElementById('seller-bio').textContent  = profile.bio || '';
+  document.getElementById('seller-bio').textContent = profile.bio || '';
   if (profile.avatar_url) {
     document.getElementById('seller-avatar').innerHTML = `<img src="${esc(profile.avatar_url)}" alt="">`;
   }
@@ -3051,9 +3280,9 @@ async function openSeller(sellerId) {
 
   const sellerProducts = allProducts.filter(p => p.seller_id === sellerId);
   document.getElementById('s-products').textContent = sellerProducts.length;
-  document.getElementById('s-sales').textContent    = sellerProducts.reduce((s, p) => s + (p.sales_count || 0), 0);
+  document.getElementById('s-sales').textContent = sellerProducts.reduce((s, p) => s + (p.sales_count || 0), 0);
   const ratings = sellerProducts.filter(p => p.avg_rating).map(p => p.avg_rating);
-  document.getElementById('s-rating').textContent   = ratings.length
+  document.getElementById('s-rating').textContent = ratings.length
     ? (ratings.reduce((s, r) => s + r, 0) / ratings.length).toFixed(1) : '—';
 
   renderProductGrid(sellerProducts, 'seller-products-grid');
@@ -3069,9 +3298,9 @@ async function loadNotifications() {
   const { data } = await sb.from('notifications')
     .select('*').eq('user_id', currentUser.id)
     .order('created_at', { ascending: false }).limit(10);
-  const list    = document.getElementById('notif-list');
-  const dot     = document.getElementById('notif-dot');
-  const unread  = (data || []).filter(n => !n.read);
+  const list = document.getElementById('notif-list');
+  const dot = document.getElementById('notif-dot');
+  const unread = (data || []).filter(n => !n.read);
   if (dot) dot.style.display = unread.length ? 'block' : 'none';
   if (list) {
     list.innerHTML = (data || []).length ? (data || []).map(n => `
@@ -3113,24 +3342,35 @@ window.markAllRead = markAllRead;
    §27  CONTACT / TICKETS
 ════════════════════════════════════════════ */
 async function submitContactForm() {
-  const email   = document.getElementById('ticket-email')?.value.trim();
+  const email = document.getElementById('ticket-email')?.value.trim();
   const subject = document.getElementById('ticket-subject')?.value.trim();
-  const cat     = document.getElementById('ticket-cat')?.value;
-  const msg     = document.getElementById('ticket-msg')?.value.trim();
+  const cat = document.getElementById('ticket-cat')?.value;
+  const msg = document.getElementById('ticket-msg')?.value.trim();
+  const msgDiv = document.getElementById('ticket-message');
+  
   if (!email || !subject || !msg) { showToast('Töltsd ki a kötelező mezőket!', 'error'); return; }
   const btn = document.getElementById('ticket-submit-btn');
   btn.disabled = true;
+  
   const { error } = await sb.from('support_tickets').insert({
     email, subject, category: cat, message: msg,
     user_id: currentUser?.id || null, status: 'open'
   });
+  
   btn.disabled = false;
   if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  
   ['ticket-email', 'ticket-subject', 'ticket-msg'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
+  
   showToast('✅ Ticket elküldve! 24 órán belül válaszolunk.');
+  if (msgDiv) {
+    msgDiv.style.display = 'block';
+    msgDiv.textContent = '✅ Ticket sikeresen elküldve!';
+    setTimeout(() => msgDiv.style.display = 'none', 3000);
+  }
   loadMyTickets();
 }
 window.submitContactForm = submitContactForm;
@@ -3174,7 +3414,7 @@ function showToast(msg, type = 'success') {
 }
 window.showToast = showToast;
 
-function openModal(id)  { 
+function openModal(id) { 
   document.getElementById(id)?.classList.add('open'); 
 }
 window.openModal = openModal;
@@ -3206,7 +3446,6 @@ window.saveCookieSettings = saveCookieSettings;
    §29  INIT
 ════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', async () => {
-  // Cookie banner
   if (!localStorage.getItem('dp_cookies'))
     document.getElementById('cookie-banner').style.display = 'flex';
   
@@ -3214,12 +3453,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadProducts();
   updateCounts();
   
-  // Stripe visszatérés kezelése
   await handleStripeReturn();
   
-  // Deep-link: ?product=<uuid>
-  const params  = new URLSearchParams(window.location.search);
-  const prodId  = params.get('product');
+  const params = new URLSearchParams(window.location.search);
+  const prodId = params.get('product');
   const refCode = params.get('ref');
   
   if (prodId && isValidUUID(prodId)) {
@@ -3230,7 +3467,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     setTimeout(tryOpen, 300);
   }
   
-  // Affiliate kattintás rögzítése
   if (refCode && prodId && isValidUUID(prodId)) {
     sb.from('profiles')
       .select('id').eq('affiliate_code', refCode).single()
