@@ -3098,19 +3098,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Cookie banner
   if (!localStorage.getItem('dp_cookies'))
     document.getElementById('cookie-banner').style.display = 'flex';
-
   loadCartFromStorage();
   loadProducts();
   updateCounts();
-
   // FIX #1: handleStripeReturn() most már létezik és itt fut
   await handleStripeReturn();
-
   // Deep-link: ?product=<uuid>
   const params  = new URLSearchParams(window.location.search);
   const prodId  = params.get('product');
   const refCode = params.get('ref');
-
   if (prodId && isValidUUID(prodId)) {
     const tryOpen = () => {
       if (allProducts.length) openProduct(prodId);
@@ -3118,9 +3114,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     setTimeout(tryOpen, 300);
   }
-
   // Affiliate kattintás rögzítése
   if (refCode && prodId && isValidUUID(prodId)) {
     sb.from('profiles')
       .select('id').eq('affiliate_code', refCode).single()
+      .then(({ data }) => {
+        if (data) {
+          sb.from('affiliate_clicks').insert({
+            affiliate_id: data.id,
+            product_id: prodId,
+            ref_code: refCode,
+            ip_hash: null
+          });
+        }
+      });
+  }
+});
  
