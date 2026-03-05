@@ -2649,21 +2649,7 @@ function renderCart() {
   }
 }
 
-  const subtotal = cart.reduce((s, c) => s + c.price, 0);
-  const discount = couponApplied ? Math.round(subtotal * (couponApplied.pct / 100)) : 0;
-  const total = subtotal - discount;
 
-  if (summary) {
-    summary.innerHTML = `
-      <div class="cart-summary">
-        <div class="cart-row"><span>Részösszeg</span><span>${subtotal.toLocaleString('hu-HU')} Ft</span></div>
-        ${discount ? `<div class="cart-row discount"><span>Kupon (${couponApplied.pct}%)</span><span>-${discount.toLocaleString('hu-HU')} Ft</span></div>` : ''}
-        <div class="cart-row total"><span>Összesen</span><span>${total.toLocaleString('hu-HU')} Ft</span></div>
-        <button class="btn btn-primary btn-full btn-lg" style="margin-top:16px" onclick="showPage('checkout')">
-          💳 Pénztárhoz
-        </button>
-      </div>`;
-  }
 
 
 /* ════════════════════════════════════════════
