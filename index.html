@@ -1462,8 +1462,8 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
   <div class="modal-box">
     <button class="modal-close" onclick="closeModal('modal-auth')">✕</button>
     <div class="auth-tabs">
-      <button class="auth-tab active" onclick="switchAuthTab('login',this)">Bejelentkezés</button>
-      <button class="auth-tab" onclick="switchAuthTab('register',this)">Regisztráció</button>
+      <button class="auth-tab active" onclick="switchAuthTab('login', this)">Bejelentkezés</button>
+      <button class="auth-tab" onclick="switchAuthTab('register', this)">Regisztráció</button>
     </div>
     <div id="auth-login" class="auth-form">
       <input type="email" placeholder="E-mail cím" id="login-email" autocomplete="email">
@@ -1948,13 +1948,33 @@ async function doSocialLogin(provider) {
 }
 window.doSocialLogin = doSocialLogin;
 
+/* ════════════════════════════════════════════
+   §8  AUTH HELPERS - JAVÍTVA
+════════════════════════════════════════════ */
 function switchAuthTab(tab, btn) {
-  document.getElementById('auth-login').style.display = tab === 'login' ? 'block' : 'none';
-  document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none';
-  document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  console.log('Switching to tab:', tab); // Debug
+  const loginForm = document.getElementById('auth-login');
+  const registerForm = document.getElementById('auth-register');
+  const tabs = document.querySelectorAll('.auth-tab');
+  
+  if (!loginForm || !registerForm) {
+    console.error('Auth forms not found!');
+    return;
+  }
+  
+  if (tab === 'login') {
+    loginForm.style.display = 'block';
+    registerForm.style.display = 'none';
+  } else {
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'block';
+  }
+  
+  tabs.forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
 }
 window.switchAuthTab = switchAuthTab;
+window.switchAuthTabImpl = switchAuthTab;
 
 async function doLogout() {
   await sb.auth.signOut();
