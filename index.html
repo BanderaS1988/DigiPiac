@@ -1532,10 +1532,7 @@ function requireAuth(cb) {
   }
 }
 
-/* FIX #2: handleAuthBtn – bejelentkezett állapotban a profil oldalt nyitja
-   requireAuth-on keresztül (nem showPage-t hív közvetlenül).
-   Nem bejelentkezett esetén a login modalt nyitja. */
-function handleAuthBtn() {
+window.handleAuthBtn = function() {
   if (currentUser) {
     requireAuth(() => showPage('profile'));
   } else {
