@@ -89,6 +89,7 @@ window.showToast = function(msg, type = 'success') {
 
 window.filterProducts = function() {
   if (window.filterProductsImpl) window.filterProductsImpl();
+  else console.warn('filterProductsImpl not defined');
 };
 
 window.addToCart = function(product) {
@@ -3799,6 +3800,9 @@ window.addEventListener('load', function() {
   if (typeof switchAuthTab === 'function' && !window.switchAuthTabImpl) {
     window.switchAuthTabImpl = switchAuthTab;
   }
+
+  
+  
   if (typeof uploadAvatar === 'function' && !window.uploadAvatarImpl) {
     window.uploadAvatarImpl = uploadAvatar;
   }
