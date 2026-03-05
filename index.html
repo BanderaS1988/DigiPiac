@@ -1876,44 +1876,85 @@ async function loadProfile() {
 
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim();
-  const pass = document.getElementById('login-password').value;
+  const pass  = document.getElementById('login-password').value;
   if (!email || !pass) { showToast('Töltsd ki az összes mezőt!', 'error'); return; }
+
   const btn = document.getElementById('login-btn');
   btn.disabled = true; btn.textContent = 'Bejelentkezés...';
+
   const { error } = await sb.auth.signInWithPassword({ email, password: pass });
   btn.disabled = false; btn.textContent = 'Bejelentkezés';
-  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+
+  if (error) {
+    // Supabase lehetséges hibakódok
+    if (error.message?.includes('Email not confirmed')) {
+      showToast('📧 Erősítsd meg az e-mail címed a bejelentkezés előtt!', 'error');
+    } else if (error.message?.includes('Invalid login credentials')) {
+      showToast('❌ Hibás e-mail vagy jelszó!', 'error');
+    } else {
+      showToast('Hiba: ' + error.message, 'error');
+    }
+    return;
+  }
+
   closeModal('modal-auth');
   showToast('✅ Sikeres bejelentkezés!');
 }
 window.doLogin = doLogin;
 
+
 async function doRegister() {
-  const name = document.getElementById('reg-name').value.trim();
+  const name  = document.getElementById('reg-name').value.trim();
   const email = document.getElementById('reg-email').value.trim();
-  const pass = document.getElementById('reg-password').value;
+  const pass  = document.getElementById('reg-password').value;
   const pass2 = document.getElementById('reg-password2').value;
-  const tos = document.getElementById('reg-tos').checked;
+  const tos   = document.getElementById('reg-tos').checked;
+
   if (!name || !email || !pass || !pass2) { showToast('Töltsd ki az összes mezőt!', 'error'); return; }
-  if (pass !== pass2) { showToast('A jelszavak nem egyeznek!', 'error'); return; }
-  if (pass.length < 8) { showToast('A jelszó legalább 8 karakter legyen!', 'error'); return; }
-  if (!tos) { showToast('Fogadd el az ÁSZF-et!', 'error'); return; }
+  if (pass !== pass2)   { showToast('A jelszavak nem egyeznek!', 'error'); return; }
+  if (pass.length < 8)  { showToast('A jelszó legalább 8 karakter legyen!', 'error'); return; }
+  if (!tos)             { showToast('Fogadd el az ÁSZF-et!', 'error'); return; }
+
   const btn = document.getElementById('register-btn');
   btn.disabled = true; btn.textContent = 'Regisztráció...';
+
   const { data, error } = await sb.auth.signUp({
-    email, password: pass,
+    email,
+    password: pass,
     options: { data: { full_name: name } }
   });
+
   btn.disabled = false; btn.textContent = 'Regisztráció';
-  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+
+  if (error) {
+    if (error.message?.includes('User already registered') || error.status === 422) {
+      showToast('❌ Ez az e-mail cím már regisztrálva van! Jelentkezz be.', 'error');
+    } else {
+      showToast('Hiba: ' + error.message, 'error');
+    }
+    return;
+  }
+
+  // Supabase "fake success" eset: ha az e-mail már létezik, de megerősítetlen,
+  // data.user visszajön, de identities tömb üres
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    showToast('❌ Ez az e-mail cím már regisztrálva van! Jelentkezz be.', 'error');
+    return;
+  }
+
   if (data.user) {
     await sb.from('profiles').upsert({
-      id: data.user.id, full_name: name, email,
-      role: 'user', balance: 0, affiliate_code: genCode()
+      id:             data.user.id,
+      full_name:      name,
+      email,
+      role:           'user',
+      balance:        0,
+      affiliate_code: genCode()
     });
   }
+
   closeModal('modal-auth');
-  showToast('✅ Sikeres regisztráció! Erősítsd meg e-mailben.');
+  showToast('✅ Sikeres regisztráció! Erősítsd meg az e-mail címed a bejelentkezéshez.');
 }
 window.doRegister = doRegister;
 
