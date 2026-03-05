@@ -16,8 +16,6 @@
 <!-- Stripe.js -->
 <script src="https://js.stripe.com/v3/"></script>
 <style>
-
-   
 /* ════════════════════════════════════════════════
    RESET & CSS VARIABLES
 ════════════════════════════════════════════════ */
@@ -520,7 +518,6 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
         <div id="notif-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:.85rem">Nincs értesítés</div></div>
       </div>
     </div>
-    <!-- FIX #2: Profil gomb mostantól requireAuth-ot használ, nem showPage-t közvetlenül -->
     <button class="nav-btn" onclick="handleAuthBtn()" id="auth-btn">👤 Bejelentkezés</button>
     <button class="nav-btn" onclick="showPage('cart')">🛒 <span class="badge-pill" id="cart-count">0</span></button>
     <button class="nav-btn" onclick="toggleTheme()" id="theme-btn">🌙</button>
@@ -538,7 +535,6 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
   <a href="#" onclick="requireAuth(()=>{showPage('dashboard');closeMobile()})">📊 Dashboard</a>
   <a href="#" id="mobile-admin-link" style="display:none" onclick="showPage('admin');closeMobile()">🛡️ Admin</a>
   <a href="#" onclick="requireAuth(()=>{showPage('payout');closeMobile()})">💸 Kifizetés</a>
-  <!-- FIX #2: Mobil fiók gomb is requireAuth-ot használ -->
   <button onclick="handleAuthBtn();closeMobile()">👤 Fiók</button>
   <button onclick="showPage('cart');closeMobile()">🛒 Kosár</button>
 </div>
@@ -1328,39 +1324,88 @@ footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;m
 </footer>
 
 <!-- ══════════════════════════════════════════════
-     JAVASCRIPT
+     JAVASCRIPT - JAVÍTOTT VERZIÓ
 ══════════════════════════════════════════════ -->
 <script>
+/* ════════════════════════════════════════════
+   §0  CRITICAL FIXES - MINDEN MÁS ELÉ KELL!
+   ──────────────────────────────────────────
+   - requireAuth globális elérhetősége
+   - SES kompatibilitás
+   - Prototípus módosítások tiltása
+════════════════════════════════════════════ */
 
+// SES védelem - ez kell a lockdown-install.js hibákhoz!
+(function() {
+  // Meglévő konstruktorok megőrzése
+  const OriginalArray = window.Array;
+  const OriginalObject = window.Object;
+  const OriginalFunction = window.Function;
+  
+  // Ha van harden, alkalmazzuk
+  if (typeof harden !== 'undefined') {
+    try {
+      // Prototípusok megőrzése
+      const arrayProto = Object.create(Array.prototype);
+      const objectProto = Object.create(Object.prototype);
+      
+      Object.setPrototypeOf(Array.prototype, arrayProto);
+      Object.setPrototypeOf(Object.prototype, objectProto);
+      
+      harden(Array.prototype);
+      harden(Object.prototype);
+    } catch (e) {
+      console.warn('SES hardening skipped:', e);
+    }
+  }
+  
+  // Blokkoljuk a prototípus módosításokat
+  Object.defineProperty(window, 'Array', {
+    value: OriginalArray,
+    writable: false,
+    configurable: false
+  });
+  
+  Object.defineProperty(window, 'Object', {
+    value: OriginalObject,
+    writable: false,
+    configurable: false
+  });
+})();
+
+// GLOBÁLIS függvények - ezek kellenek a HTML gombokhoz!
+window.requireAuth = function(cb) {
+  console.log('requireAuth called', window.currentUser); // debug
+  if (window.currentUser) {
+    if (typeof cb === 'function') cb();
+  } else {
+    window.openModal('modal-auth');
+  }
+};
+
+window.handleAuthBtn = function() {
+  if (window.currentUser) {
+    window.requireAuth(() => window.showPage('profile'));
+  } else {
+    window.openModal('modal-auth');
+  }
+};
 
 /* ════════════════════════════════════════════
    §1  CONFIG
-   ──────────────────────────────────────────
-   Éles üzemhez cseréld le az alábbi értékeket:
-     • STRIPE_PUBLISHABLE_KEY → Stripe Dashboard > Developers > API keys
-     • SUPABASE_URL / SUPABASE_ANON_KEY → Supabase project settings
-   Edge Function URL-je automatikusan a helyes formátumra épül (#9 javítás)
 ════════════════════════════════════════════ */
 const SUPABASE_URL      = 'https://kqugolmndqonbnjetdyi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxdWdvbG1uZHFvbmJuamV0ZHlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTM3NjMsImV4cCI6MjA4ODI2OTc2M30.wGEBEJDPUKsUPu9W5vxvH7Do0wX9U3FdgKzEzny_zBg';
-
-/* ── FIX #5 & #9 ──
-   STRIPE_PUBLISHABLE_KEY: cseréld le a saját Stripe pk_live_... kulcsodra.
-   CHECKOUT_EDGE_FUNCTION: a project-ref-et automatikusan a SUPABASE_URL-ből
-   vonjuk ki, így mindig helyes a végső URL.
-   Pl.: https://kqugolmndqonbnjetdyi.supabase.co/functions/v1/create-checkout-session
-*/
 const STRIPE_PUBLISHABLE_KEY = 'pk_test_51T7IaDKmsMGO0we9XFymkUXh5lUkiPU1fC1VCKx6WRMPoaaVwDlmx2n1qGAjHRxuTFJ7s1goxuUXRmQcsnNgBTFi00QqFefU9r';
 
-// FIX #9: Helyes Edge Function URL – a project-ref a SUPABASE_URL-ből jön
+// Edge Function URL
 const SUPABASE_PROJECT_REF = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || '';
 const CHECKOUT_EDGE_FUNCTION =
   `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/create-checkout-session`;
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-/* FIX #8: Stripe inicializálása egyszer, biztonságosan.
-   Csak akkor futtatjuk, ha a kulcs már le van cserélve (nem tartalmaz REPLACE). */
+/* FIX #8: Stripe inicializálása */
 let stripeInstance = null;
 function getStripe() {
   if (!stripeInstance && !STRIPE_PUBLISHABLE_KEY.includes('REPLACE')) {
@@ -1390,6 +1435,10 @@ let adminChartInited  = false;
 let mainSwiper        = null;
 let authReady         = false;
 
+// Globális változók elérhetővé tétele a window objektumon
+window.currentUser = currentUser;
+window.currentProfile = currentProfile;
+
 /* ════════════════════════════════════════════
    §3  SECURITY: XSS escape helper
 ════════════════════════════════════════════ */
@@ -1405,10 +1454,6 @@ function esc(str) {
 
 /* ════════════════════════════════════════════
    §4  SECURITY: Cart item validator
-   ──────────────────────────────────────────
-   FIX #4: UUID_REGEX egyetlen helyen van definiálva (globálisan).
-   A korábbi kódban belső isValidUUID() függvényen belül is meg volt adva,
-   ami duplikált definíciót okozott. Most csak itt szerepel.
 ════════════════════════════════════════════ */
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -1474,14 +1519,26 @@ function showPage(id) {
   if (loaders[id]) loaders[id]();
 }
 
+// Globális elérhetőség
+window.showPage = showPage;
+
 function toggleTheme() {
   const html  = document.documentElement;
   const light = html.getAttribute('data-theme') === 'light';
   html.setAttribute('data-theme', light ? 'dark' : 'light');
   document.getElementById('theme-btn').textContent = light ? '🌙' : '☀️';
 }
-function toggleMobile() { document.getElementById('mobile-menu').classList.toggle('open'); }
-function closeMobile()  { document.getElementById('mobile-menu').classList.remove('open'); }
+window.toggleTheme = toggleTheme;
+
+function toggleMobile() { 
+  document.getElementById('mobile-menu').classList.toggle('open'); 
+}
+window.toggleMobile = toggleMobile;
+
+function closeMobile() { 
+  document.getElementById('mobile-menu').classList.remove('open'); 
+}
+window.closeMobile = closeMobile;
 
 window.addEventListener('scroll', () => {
   const scrollable = document.body.scrollHeight - window.innerHeight;
@@ -1497,6 +1554,7 @@ window.addEventListener('scroll', () => {
 sb.auth.onAuthStateChange(async (event, session) => {
   if (session?.user) {
     currentUser = session.user;
+    window.currentUser = currentUser;
     await loadProfile();
     updateNavForUser();
     loadCartFromStorage();
@@ -1515,8 +1573,11 @@ sb.auth.onAuthStateChange(async (event, session) => {
       .subscribe();
   } else {
     currentUser = currentProfile = null;
+    window.currentUser = null;
+    window.currentProfile = null;
     updateNavForGuest();
-    cart = []; wishlistIds = new Set();
+    cart = []; 
+    wishlistIds = new Set();
   }
   authReady = true;
   updateCounts();
@@ -1525,22 +1586,6 @@ sb.auth.onAuthStateChange(async (event, session) => {
 /* ════════════════════════════════════════════
    §8  AUTH HELPERS
 ════════════════════════════════════════════ */
-function requireAuth(cb) {
-  if (currentUser) {
-    if (typeof cb === 'function') cb();
-  } else {
-    openModal('modal-auth');
-  }
-}
-
-window.handleAuthBtn = function() {
-  if (currentUser) {
-    requireAuth(() => showPage('profile'));
-  } else {
-    openModal('modal-auth');
-  }
-}
-
 function updateNavForUser() {
   const btn = document.getElementById('auth-btn');
   if (!btn) return;
@@ -1567,7 +1612,10 @@ async function loadProfile() {
   if (!currentUser) return;
   try {
     const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
-    if (data) currentProfile = data;
+    if (data) {
+      currentProfile = data;
+      window.currentProfile = data;
+    }
   } catch (e) { console.warn('loadProfile:', e); }
 }
 
@@ -1583,6 +1631,7 @@ async function doLogin() {
   closeModal('modal-auth');
   showToast('✅ Sikeres bejelentkezés!');
 }
+window.doLogin = doLogin;
 
 async function doRegister() {
   const name  = document.getElementById('reg-name').value.trim();
@@ -1611,6 +1660,7 @@ async function doRegister() {
   closeModal('modal-auth');
   showToast('✅ Sikeres regisztráció! Erősítsd meg e-mailben.');
 }
+window.doRegister = doRegister;
 
 function genCode() {
   return Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -1622,6 +1672,7 @@ async function doForgotPassword() {
   await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
   showToast('📧 Jelszó-visszaállító e-mail elküldve!');
 }
+window.doForgotPassword = doForgotPassword;
 
 async function doSocialLogin(provider) {
   const { error } = await sb.auth.signInWithOAuth({
@@ -1630,6 +1681,7 @@ async function doSocialLogin(provider) {
   });
   if (error) showToast('Hiba: ' + error.message, 'error');
 }
+window.doSocialLogin = doSocialLogin;
 
 function switchAuthTab(tab, btn) {
   document.getElementById('auth-login').style.display    = tab === 'login'    ? 'block' : 'none';
@@ -1637,12 +1689,14 @@ function switchAuthTab(tab, btn) {
   document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
 }
+window.switchAuthTab = switchAuthTab;
 
 async function doLogout() {
   await sb.auth.signOut();
   showToast('👋 Kijelentkeztél.');
   showPage('home');
 }
+window.doLogout = doLogout;
 
 /* ════════════════════════════════════════════
    §9  PROFILE PAGE
@@ -1663,6 +1717,9 @@ function renderProfile() {
     const img = document.getElementById('profile-avatar-img');
     img.src = currentProfile.avatar_url;
     img.style.display = 'block';
+    document.getElementById('profile-avatar-initials').style.display = 'none';
+  } else {
+    document.getElementById('profile-avatar-initials').style.display = 'block';
   }
   document.getElementById('modal-fullname').value   = currentProfile.full_name || '';
   document.getElementById('modal-bio').value        = currentProfile.bio || '';
@@ -1670,6 +1727,7 @@ function renderProfile() {
   document.getElementById('modal-bank-name').value  = currentProfile.bank_name || '';
   loadPurchaseHistory();
 }
+window.renderProfile = renderProfile;
 
 async function loadPurchaseHistory() {
   if (!currentUser) return;
@@ -1711,6 +1769,7 @@ async function saveProfileModal() {
   closeModal('modal-edit-profile');
   showToast('✅ Profil mentve!');
 }
+window.saveProfileModal = saveProfileModal;
 
 async function changePassword() {
   const np = document.getElementById('new-password').value;
@@ -1724,6 +1783,7 @@ async function changePassword() {
   document.getElementById('new-password').value     = '';
   document.getElementById('confirm-password').value = '';
 }
+window.changePassword = changePassword;
 
 async function uploadAvatar(event) {
   const file = event.target.files[0];
@@ -1736,9 +1796,12 @@ async function uploadAvatar(event) {
   const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path);
   await sb.from('profiles').update({ avatar_url: publicUrl }).eq('id', currentUser.id);
   const img = document.getElementById('profile-avatar-img');
-  img.src = publicUrl; img.style.display = 'block';
+  img.src = publicUrl; 
+  img.style.display = 'block';
+  document.getElementById('profile-avatar-initials').style.display = 'none';
   showToast('✅ Profilkép feltöltve!');
 }
+window.uploadAvatar = uploadAvatar;
 
 function confirmDeleteAccount() {
   if (confirm('Biztosan törölni szeretnéd a fiókodat? Ez visszavonhatatlan!')) {
@@ -1747,6 +1810,7 @@ function confirmDeleteAccount() {
       .catch(() => showToast('A törléshez lépj kapcsolatba az ügyfélszolgálattal.', 'info'));
   }
 }
+window.confirmDeleteAccount = confirmDeleteAccount;
 
 /* ════════════════════════════════════════════
    §10  PRODUCTS
@@ -1768,6 +1832,7 @@ async function loadProducts() {
       '<p style="color:var(--muted);grid-column:1/-1;text-align:center;padding:40px">Nem sikerült betölteni a termékeket.<br><small>' + msg + '</small></p>';
   }
 }
+window.loadProducts = loadProducts;
 
 function updateStats() {
   const sellers = new Set(allProducts.map(p => p.seller_id)).size;
@@ -1783,11 +1848,13 @@ function filterCat(cat, el) {
   filterProducts();
   if (cat !== 'mind') showPage('home');
 }
+window.filterCat = filterCat;
 
 function onSearchInput() {
   clearTimeout(window._searchTimer);
   window._searchTimer = setTimeout(filterProducts, 300);
 }
+window.onSearchInput = onSearchInput;
 
 function filterProducts() {
   const query       = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
@@ -1821,6 +1888,7 @@ function filterProducts() {
   if (cnt) cnt.textContent = `(${list.length} termék)`;
   renderProductGrid(list, 'product-grid');
 }
+window.filterProducts = filterProducts;
 
 function renderProductGrid(list, gridId) {
   const grid = document.getElementById(gridId);
@@ -1838,7 +1906,7 @@ function buildProductCard(p) {
   const isWished   = wishlistIds.has(p.id);
   const stars      = '⭐'.repeat(Math.round(p.avg_rating || 0));
   const coverImg   = p.cover_url
-    ? `<img src="${esc(p.cover_url)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'">`
+    ? `<img src="${esc(p.cover_url)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display=\'none\'">`
     : '';
 
   return `
@@ -1887,6 +1955,7 @@ async function openProduct(id) {
   showPage('detail');
   window.history.pushState({}, '', `?product=${id}`);
 }
+window.openProduct = openProduct;
 
 function renderProductDetail(p) {
   document.title = `${p.name} – DigiPiac`;
@@ -2003,6 +2072,8 @@ function goSlide(i) {
   if (mainSwiper) mainSwiper.slideTo(i);
   updateThumbActive(i);
 }
+window.goSlide = goSlide;
+
 function updateThumbActive(i) {
   document.querySelectorAll('.g-thumb').forEach((t, idx) =>
     t.classList.toggle('active', idx === i));
@@ -2019,7 +2090,12 @@ function openLightbox(i) {
     : `<div style="font-size:8rem">${slide.textContent.trim()}</div>`;
   document.getElementById('lightbox').classList.add('open');
 }
-function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+window.openLightbox = openLightbox;
+
+function closeLightbox() { 
+  document.getElementById('lightbox').classList.remove('open'); 
+}
+window.closeLightbox = closeLightbox;
 
 function switchTab(tab, btn) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -2027,6 +2103,7 @@ function switchTab(tab, btn) {
   document.getElementById('tab-' + tab)?.classList.add('active');
   btn.classList.add('active');
 }
+window.switchTab = switchTab;
 
 function shareProduct(type, id) {
   const productId = id || currentProduct?.id;
@@ -2043,12 +2120,14 @@ function shareProduct(type, id) {
     navigator.clipboard.writeText(url).then(() => showToast('🔗 Link másolva!'));
   }
 }
+window.shareProduct = shareProduct;
 
 function copyAffLink() {
   const text = document.getElementById('aff-link-text').textContent;
   if (text.includes('Bejelentkezés')) { openModal('modal-auth'); return; }
   navigator.clipboard.writeText(text).then(() => showToast('🔗 Affiliate link másolva!'));
 }
+window.copyAffLink = copyAffLink;
 
 async function loadRelated(p) {
   const related = allProducts
@@ -2095,6 +2174,7 @@ function setStars(n) {
   document.querySelectorAll('#star-select span').forEach((s, i) =>
     s.classList.toggle('active', i < n));
 }
+window.setStars = setStars;
 
 async function submitReview() {
   if (!currentProduct) return;
@@ -2118,6 +2198,7 @@ async function submitReview() {
   showToast('✅ Értékelés elküldve!');
   loadReviews(currentProduct.id);
 }
+window.submitReview = submitReview;
 
 /* ════════════════════════════════════════════
    §13  Q&A
@@ -2146,6 +2227,7 @@ async function submitQA() {
   showToast('✅ Kérdés elküldve!');
   loadQA(currentProduct.id);
 }
+window.submitQA = submitQA;
 
 /* ════════════════════════════════════════════
    §14  CART
@@ -2183,11 +2265,13 @@ function addToCart(product) {
   updateCounts();
   showToast('🛒 Kosárba téve: ' + item.name);
 }
+window.addToCart = addToCart;
 
 function buyNow(product) {
   addToCart(product);
   showPage('checkout');
 }
+window.buyNow = buyNow;
 
 function removeFromCart(id) {
   cart = cart.filter(c => c.id !== id);
@@ -2195,6 +2279,7 @@ function removeFromCart(id) {
   updateCounts();
   renderCart();
 }
+window.removeFromCart = removeFromCart;
 
 function renderCart() {
   const wrap     = document.getElementById('cart-items');
@@ -2262,6 +2347,7 @@ async function applyCoupon() {
     if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">❌ Érvénytelen kupon</span>`;
   }
 }
+window.applyCoupon = applyCoupon;
 
 /* ════════════════════════════════════════════
    §16  CHECKOUT SUMMARY
@@ -2287,16 +2373,13 @@ function renderCheckoutSummary() {
 
   if (emailInp && currentUser?.email) emailInp.value = currentUser.email;
 }
+window.renderCheckoutSummary = renderCheckoutSummary;
 
 /* ════════════════════════════════════════════
    §17  STRIPE CHECKOUT
-   ──────────────────────────────────────────
-   FIX #7: Kötelező GDPR checkboxok ellenőrzése
-   FIX #8: getStripe() segítségével inicializáljuk a Stripe-ot
-   FIX #3: completePurchase() eltávolítva, csak initiateStripeCheckout() létezik
 ════════════════════════════════════════════ */
 async function initiateStripeCheckout() {
-  // FIX #7: GDPR checkbox-ok kötelező validációja fizetés előtt
+  // GDPR checkbox-ok kötelező validációja
   const gdpr1 = document.getElementById('gdpr1')?.checked;
   const gdpr2 = document.getElementById('gdpr2')?.checked;
   const gdpr3 = document.getElementById('gdpr3')?.checked;
@@ -2323,12 +2406,12 @@ async function initiateStripeCheckout() {
   }
 
   try {
-    // Valódi Stripe Checkout session létrehozása az Edge Function-on keresztül
+    // Valódi Stripe Checkout session létrehozása
     const lineItems = cart.map(item => ({
       price_data: {
         currency: 'huf',
         product_data: { name: item.name },
-        unit_amount: Math.round(item.price) // Stripe HUF esetén fillér nélkül, de egész számot vár
+        unit_amount: Math.round(item.price)
       },
       quantity: 1
     }));
@@ -2359,7 +2442,6 @@ async function initiateStripeCheckout() {
 
     const { sessionId } = await resp.json();
 
-    // FIX #8: Stripe.redirectToCheckout hívása
     const stripe = getStripe();
     if (!stripe) throw new Error('Stripe nem inicializálható.');
     const { error } = await stripe.redirectToCheckout({ sessionId });
@@ -2371,29 +2453,20 @@ async function initiateStripeCheckout() {
     if (btn) { btn.disabled = false; btn.textContent = '🔒 Biztonságos fizetés a Stripe-on'; }
   }
 }
+window.initiateStripeCheckout = initiateStripeCheckout;
 
 /* ════════════════════════════════════════════
    §18  STRIPE RETURN HANDLER
-   ──────────────────────────────────────────
-   FIX #1: handleStripeReturn() MEGVALÓSÍTVA
-   Ez a függvény kezeli, amikor Stripe visszairányít
-   success vagy cancel URL-re. A session_id URL
-   paraméterből olvassa ki a megvásárolt termékeket.
-   FIX #6: A success oldal letöltési linkjeit is
-   itt töltjük be (webhook után, orders táblából).
 ════════════════════════════════════════════ */
 async function handleStripeReturn() {
   const params = new URLSearchParams(window.location.search);
 
   // Sikeres fizetés visszatérés
   if (params.has('stripe_success')) {
-    // URL cleanup (ne maradjon meg a ?stripe_success)
     window.history.replaceState({}, '', window.location.pathname);
 
-    // Kosár törlése – a fizetés megtörtént
     cart = []; saveCartToStorage(); updateCounts();
 
-    // FIX #6: Letöltési linkek betöltése az orders táblából
     let downloadItems = [];
     if (currentUser) {
       try {
@@ -2469,6 +2542,7 @@ async function toggleWish(productId) {
     }
   });
 }
+window.toggleWish = toggleWish;
 
 function renderWishlist() {
   const grid = document.getElementById('wishlist-grid');
@@ -2482,6 +2556,7 @@ function renderWishlist() {
   if (empty) empty.style.display = 'none';
   renderProductGrid(wished, 'wishlist-grid');
 }
+window.renderWishlist = renderWishlist;
 
 /* ════════════════════════════════════════════
    §20  SELL
@@ -2504,6 +2579,7 @@ function handleFileSelect(event, type) {
     reader.readAsDataURL(file);
   }
 }
+window.handleFileSelect = handleFileSelect;
 
 function updatePricePreview() {
   const price = parseFloat(document.getElementById('sell-price')?.value) || 0;
@@ -2519,6 +2595,7 @@ function updatePricePreview() {
   document.getElementById('pp-vat').textContent   = fmt(vat);
   document.getElementById('pp-you').textContent   = fmt(you);
 }
+window.updatePricePreview = updatePricePreview;
 
 async function submitProduct() {
   if (!currentUser) { openModal('modal-auth'); return; }
@@ -2577,6 +2654,7 @@ async function submitProduct() {
     btn.disabled = false; btn.textContent = '🚀 Termék közzététele';
   }
 }
+window.submitProduct = submitProduct;
 
 /* ════════════════════════════════════════════
    §21  DASHBOARD
@@ -2607,6 +2685,7 @@ async function loadDashboard() {
     if (!chartsInited) { initRevenueChart(orders); chartsInited = true; }
   } catch (e) { console.warn('loadDashboard:', e); }
 }
+window.loadDashboard = loadDashboard;
 
 function renderMyProductsTable(products) {
   const tbody = document.getElementById('my-products-table');
@@ -2686,6 +2765,7 @@ async function loadAdmin() {
     loadAdminPending();
   } catch (e) { console.warn('loadAdmin:', e); }
 }
+window.loadAdmin = loadAdmin;
 
 async function loadAdminPending() {
   const { data } = await sb.from('products').select('*, profiles(full_name)')
@@ -2703,6 +2783,7 @@ async function loadAdminPending() {
       <button class="btn btn-danger"  onclick="rejectProduct('${esc(p.id)}')">❌ Elutasítás</button>
     </div>`).join('') || '<p style="color:var(--muted)">Nincs jóváhagyásra váró termék.</p>';
 }
+window.loadAdminPending = loadAdminPending;
 
 async function approveProduct(id) {
   await sb.from('products').update({ status: 'active' }).eq('id', id);
@@ -2711,12 +2792,14 @@ async function approveProduct(id) {
   allProducts = [];
   loadProducts();
 }
+window.approveProduct = approveProduct;
 
 async function rejectProduct(id) {
   await sb.from('products').update({ status: 'rejected' }).eq('id', id);
   showToast('❌ Termék elutasítva!');
   loadAdminPending();
 }
+window.rejectProduct = rejectProduct;
 
 async function searchAdminUsers() {
   const q = document.getElementById('admin-user-search')?.value.trim() || '';
@@ -2735,6 +2818,7 @@ async function searchAdminUsers() {
       ${u.role !== 'admin' ? `<button class="btn btn-warning" style="font-size:.75rem;padding:4px 10px" onclick="banUser('${esc(u.id)}')">Tiltás</button>` : ''}
     </div>`).join('') || '<p style="color:var(--muted)">Nincs találat.</p>';
 }
+window.searchAdminUsers = searchAdminUsers;
 
 async function banUser(userId) {
   if (!confirm('Biztosan tiltani szeretnéd ezt a felhasználót?')) return;
@@ -2742,6 +2826,7 @@ async function banUser(userId) {
   showToast('🚫 Felhasználó tiltva.');
   searchAdminUsers();
 }
+window.banUser = banUser;
 
 function switchAdminTab(tab, btn) {
   document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
@@ -2756,6 +2841,7 @@ function switchAdminTab(tab, btn) {
   };
   if (loaders[tab]) loaders[tab]();
 }
+window.switchAdminTab = switchAdminTab;
 
 async function loadAdminProducts() {
   const { data } = await sb.from('products').select('*, profiles(full_name)')
@@ -2775,6 +2861,7 @@ async function loadAdminProducts() {
       </td>
     </tr>`).join('');
 }
+window.loadAdminProducts = loadAdminProducts;
 
 async function adminDeleteProduct(id) {
   if (!confirm('Biztosan törölni szeretnéd?')) return;
@@ -2782,6 +2869,7 @@ async function adminDeleteProduct(id) {
   showToast('🗑️ Termék törölve.');
   loadAdminProducts();
 }
+window.adminDeleteProduct = adminDeleteProduct;
 
 async function loadAdminFinance() {
   const { data } = await sb.from('profiles').select('id, full_name, balance').limit(30);
@@ -2795,6 +2883,7 @@ async function loadAdminFinance() {
       <td><span class="status-badge paid">Aktív</span></td>
     </tr>`).join('');
 }
+window.loadAdminFinance = loadAdminFinance;
 
 async function loadAdminTickets() {
   const { data } = await sb.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(30);
@@ -2811,12 +2900,14 @@ async function loadAdminTickets() {
       ${t.status === 'open' ? `<button class="btn btn-outline" style="margin-top:8px;font-size:.75rem;padding:4px 10px" onclick="closeTicket('${esc(t.id)}')">Lezárás</button>` : ''}
     </div>`).join('') || '<p style="color:var(--muted)">Nincs ticket.</p>';
 }
+window.loadAdminTickets = loadAdminTickets;
 
 async function closeTicket(id) {
   await sb.from('support_tickets').update({ status: 'closed' }).eq('id', id);
   showToast('✅ Ticket lezárva.');
   loadAdminTickets();
 }
+window.closeTicket = closeTicket;
 
 /* ════════════════════════════════════════════
    §23  PAYOUT
@@ -2841,6 +2932,7 @@ async function loadPayout() {
       </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nincs előzmény.</td></tr>';
   }
 }
+window.loadPayout = loadPayout;
 
 async function requestPayout() {
   if (!currentUser) return;
@@ -2855,6 +2947,7 @@ async function requestPayout() {
   showToast('✅ Kifizetés igényelve!');
   loadPayout();
 }
+window.requestPayout = requestPayout;
 
 async function saveBankDetails() {
   if (!currentUser) return;
@@ -2867,6 +2960,7 @@ async function saveBankDetails() {
   await loadProfile();
   showToast('✅ Bankadatok mentve!');
 }
+window.saveBankDetails = saveBankDetails;
 
 /* ════════════════════════════════════════════
    §24  AFFILIATE
@@ -2906,6 +3000,7 @@ async function loadAffiliate() {
 
   if (!affChartInited) { initAffChart(convs || []); affChartInited = true; }
 }
+window.loadAffiliate = loadAffiliate;
 
 function initAffChart(convs) {
   const canvas = document.getElementById('aff-chart');
@@ -2936,6 +3031,7 @@ function copyMainAffLink() {
   const link = document.getElementById('aff-main-link')?.textContent;
   if (link && link !== '—') navigator.clipboard.writeText(link).then(() => showToast('🔗 Link másolva!'));
 }
+window.copyMainAffLink = copyMainAffLink;
 
 /* ════════════════════════════════════════════
    §25  SELLER PAGE
@@ -2963,6 +3059,7 @@ async function openSeller(sellerId) {
   renderProductGrid(sellerProducts, 'seller-products-grid');
   showPage('seller');
 }
+window.openSeller = openSeller;
 
 /* ════════════════════════════════════════════
    §26  NOTIFICATIONS
@@ -2988,12 +3085,14 @@ async function loadNotifications() {
       : '<div style="padding:20px;text-align:center;color:var(--muted);font-size:.85rem">Nincs értesítés</div>';
   }
 }
+window.loadNotifications = loadNotifications;
 
 function toggleNotif() {
   notifOpen = !notifOpen;
   document.getElementById('notif-dropdown')?.classList.toggle('open', notifOpen);
   document.addEventListener('click', closeNotifOutside, { once: true });
 }
+window.toggleNotif = toggleNotif;
 
 function closeNotifOutside(e) {
   if (!e.target.closest('#notif-dropdown') && !e.target.closest('#notif-trigger')) {
@@ -3008,6 +3107,7 @@ async function markAllRead() {
   document.getElementById('notif-dot').style.display = 'none';
   loadNotifications();
 }
+window.markAllRead = markAllRead;
 
 /* ════════════════════════════════════════════
    §27  CONTACT / TICKETS
@@ -3033,6 +3133,7 @@ async function submitContactForm() {
   showToast('✅ Ticket elküldve! 24 órán belül válaszolunk.');
   loadMyTickets();
 }
+window.submitContactForm = submitContactForm;
 
 async function loadMyTickets() {
   const wrap = document.getElementById('my-tickets-list');
@@ -3052,6 +3153,7 @@ async function loadMyTickets() {
       <div style="color:var(--muted);font-size:.78rem">${new Date(t.created_at).toLocaleDateString('hu-HU')}</div>
     </div>`).join('') || '<p style="color:var(--muted);font-size:.85rem">Nincs ticketed.</p>';
 }
+window.loadMyTickets = loadMyTickets;
 
 /* ════════════════════════════════════════════
    §28  UI UTILITIES
@@ -3070,9 +3172,18 @@ function showToast(msg, type = 'success') {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
 }
+window.showToast = showToast;
 
-function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
-function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+function openModal(id)  { 
+  document.getElementById(id)?.classList.add('open'); 
+}
+window.openModal = openModal;
+
+function closeModal(id) { 
+  document.getElementById(id)?.classList.remove('open'); 
+}
+window.closeModal = closeModal;
+
 document.querySelectorAll('.modal').forEach(m =>
   m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); })
 );
@@ -3081,6 +3192,7 @@ function acceptCookies() {
   localStorage.setItem('dp_cookies', '1');
   document.getElementById('cookie-banner').style.display = 'none';
 }
+window.acceptCookies = acceptCookies;
 
 function saveCookieSettings() {
   localStorage.setItem('dp_cookies', '1');
@@ -3088,6 +3200,7 @@ function saveCookieSettings() {
   document.getElementById('cookie-banner').style.display = 'none';
   showToast('✅ Sütibeállítások mentve!');
 }
+window.saveCookieSettings = saveCookieSettings;
 
 /* ════════════════════════════════════════════
    §29  INIT
@@ -3096,15 +3209,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Cookie banner
   if (!localStorage.getItem('dp_cookies'))
     document.getElementById('cookie-banner').style.display = 'flex';
+  
   loadCartFromStorage();
   loadProducts();
   updateCounts();
-  // FIX #1: handleStripeReturn() most már létezik és itt fut
+  
+  // Stripe visszatérés kezelése
   await handleStripeReturn();
+  
   // Deep-link: ?product=<uuid>
   const params  = new URLSearchParams(window.location.search);
   const prodId  = params.get('product');
   const refCode = params.get('ref');
+  
   if (prodId && isValidUUID(prodId)) {
     const tryOpen = () => {
       if (allProducts.length) openProduct(prodId);
@@ -3112,6 +3229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
     setTimeout(tryOpen, 300);
   }
+  
   // Affiliate kattintás rögzítése
   if (refCode && prodId && isValidUUID(prodId)) {
     sb.from('profiles')
@@ -3119,7 +3237,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       .then(({ data }) => {
         if (data) {
           sb.from('affiliate_clicks').insert({
-            affiliate_id: data.id,
+            affiliate_user_id: data.id,
             product_id: prodId,
             ref_code: refCode,
             ip_hash: null
@@ -3127,5 +3245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       });
   }
-});
- 
+}); 
+</script>
+</body>
+</html>
