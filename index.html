@@ -1631,20 +1631,22 @@ window.handleAuthBtn = function() {
 };
 
 /* ════════════════════════════════════════════
-   §1  CONFIG
+   §1  CONFIG - JAVÍTVA
 ════════════════════════════════════════════ */
 const SUPABASE_URL      = 'https://kqugolmndqonbnjetdyi.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxdWdvbG1uZHFvbmJuamV0ZHlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTM3NjMsImV4cCI6MjA4ODI2OTc2M30.wGEBEJDPUKsUPu9W5vxvH7Do0wX9U3FdgKzEzny_zBg';
 const STRIPE_PUBLISHABLE_KEY = 'pk_test_51T7IaDKmsMGO0we9XFymkUXh5lUkiPU1fC1VCKx6WRMPoaaVwDlmx2n1qGAjHRxuTFJ7s1goxuUXRmQcsnNgBTFi00QqFefU9r';
 const PAYPAL_CLIENT_ID = 'test'; // Élesben cseréld élő client ID-ra
 
-// Edge Function URL
-const SUPABASE_PROJECT_REF = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || '';
+// Edge Function URL - JAVÍTVA (fix project ref)
+const SUPABASE_PROJECT_REF = 'kqugolmndqonbnjetdyi';
 const CHECKOUT_EDGE_FUNCTION = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/create-checkout-session`;
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 console.log('Supabase klient:', sb);
 console.log('Supabase URL:', SUPABASE_URL);
+console.log('Project Ref:', SUPABASE_PROJECT_REF);
+console.log('Edge Function URL:', CHECKOUT_EDGE_FUNCTION);
 
 /* Stripe inicializálása */
 let stripeInstance = null;
@@ -1654,7 +1656,6 @@ function getStripe() {
   }
   return stripeInstance;
 }
-
 /* ════════════════════════════════════════════
    §2  GLOBAL STATE
 ════════════════════════════════════════════ */
