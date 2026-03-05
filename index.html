@@ -201,7 +201,7 @@ input[type=file]{padding:.4rem;}
     <div class="form-group"><label>Termék neve *</label><input type="text" id="up-name" placeholder="pl. Minimalista logó csomag"></div>
     <div class="form-group"><label>Leírás *</label><textarea id="up-desc" placeholder="Részletes leírás..."></textarea></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem">
-      <div class="form-group"><label>Ár (Ft) *</label><input type="number" id="up-price" placeholder="1500" min="1"></div>
+      <div class="form-group"><label>Ár (Ft) *</label><input type="number" id="up-price" placeholder="1500" min="1000"></div>
       <div class="form-group"><label>Licenc</label><select id="up-license"><option value="personal">Személyes</option><option value="commercial">Kereskedelmi</option><option value="open">Nyílt</option></select></div>
     </div>
     <div class="form-group">
@@ -845,7 +845,7 @@ function submitProduct() {
   var cat = document.getElementById('up-cat').value;
   var mainFile = document.getElementById('up-file').files[0];
   if (!name || !desc || !price || !mainFile) { toast('❌ Töltsd ki az összes kötelező mezőt!'); return; }
-  if (price < 1) { toast('❌ Az ár legalább 1 Ft!'); return; }
+ if (price < 1000) { toast('❌ Az ár minimum 1000 Ft!'); return; }
   toast('⏳ Feltöltés folyamatban...');
   var ts = Date.now();
   var filePath = 'files/' + currentUser.id + '/' + ts + '_' + mainFile.name;
