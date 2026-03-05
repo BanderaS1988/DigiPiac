@@ -107,9 +107,6 @@ window.applyCoupon = function() {
   if (window.applyCouponImpl) window.applyCouponImpl();
 };
 
-window.doLogin = function() {
-  if (window.doLoginImpl) window.doLoginImpl();
-};
 
 window.doRegister = function() {
   if (window.doRegisterImpl) window.doRegisterImpl();
@@ -1646,6 +1643,8 @@ const SUPABASE_PROJECT_REF = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co
 const CHECKOUT_EDGE_FUNCTION = `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/create-checkout-session`;
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+console.log('Supabase klient:', sb);
+console.log('Supabase URL:', SUPABASE_URL);
 
 /* Stripe inicializálása */
 let stripeInstance = null;
@@ -1874,33 +1873,54 @@ async function loadProfile() {
   }
 }
 
-async function doLogin() {
+window.doLogin = async function() {
   const email = document.getElementById('login-email').value.trim();
   const pass  = document.getElementById('login-password').value;
-  if (!email || !pass) { showToast('Töltsd ki az összes mezőt!', 'error'); return; }
-
-  const btn = document.getElementById('login-btn');
-  btn.disabled = true; btn.textContent = 'Bejelentkezés...';
-
-  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-  btn.disabled = false; btn.textContent = 'Bejelentkezés';
-
-  if (error) {
-    // Supabase lehetséges hibakódok
-    if (error.message?.includes('Email not confirmed')) {
-      showToast('📧 Erősítsd meg az e-mail címed a bejelentkezés előtt!', 'error');
-    } else if (error.message?.includes('Invalid login credentials')) {
-      showToast('❌ Hibás e-mail vagy jelszó!', 'error');
-    } else {
-      showToast('Hiba: ' + error.message, 'error');
-    }
-    return;
+  
+  console.log('Bejelentkezési kísérlet:', email); // Debug
+  
+  if (!email || !pass) { 
+    showToast('Töltsd ki az összes mezőt!', 'error'); 
+    return; 
   }
 
-  closeModal('modal-auth');
-  showToast('✅ Sikeres bejelentkezés!');
-}
-window.doLogin = doLogin;
+  const btn = document.getElementById('login-btn');
+  const originalText = btn.textContent;
+  btn.disabled = true; 
+  btn.textContent = '⏳ Bejelentkezés...';
+
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ 
+      email: email, 
+      password: pass 
+    });
+    
+    console.log('Supabase válasz:', data, error); // Debug
+    
+    if (error) {
+      if (error.message?.includes('Email not confirmed')) {
+        showToast('📧 Erősítsd meg az e-mail címed!', 'error');
+      } else if (error.message?.includes('Invalid login credentials')) {
+        showToast('❌ Hibás e-mail vagy jelszó!', 'error');
+      } else {
+        showToast('Hiba: ' + error.message, 'error');
+      }
+      btn.disabled = false;
+      btn.textContent = originalText;
+      return;
+    }
+
+    // Sikeres bejelentkezés
+    closeModal('modal-auth');
+    showToast('✅ Sikeres bejelentkezés!');
+    
+  } catch (err) {
+    console.error('Bejelentkezési hiba:', err);
+    showToast('Váratlan hiba történt!', 'error');
+    btn.disabled = false;
+    btn.textContent = originalText;
+  }
+};
 
 
 async function doRegister() {
