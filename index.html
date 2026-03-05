@@ -4,7 +4,252 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DigiPiac – Magyar Digitális Piactér</title>
-<meta name="description" content="Magyar digitális termékek piactere. Vásárolj és adj el e-bookot, tanfolyamot, sablont forintban, biztonságosan.">
+
+<!-- ========== KRITIKUS JAVÍTÁS - MINDEN GOMB MŰKÖDNI FOG ========== -->
+<script>
+// GLOBÁLIS FÜGGVÉNYEK - ezek a HTML gombokból hívódnak
+window.requireAuth = function(cb) { 
+  console.log('requireAuth called', window.currentUser);
+  if (window.currentUser) { 
+    if (typeof cb === 'function') cb(); 
+  } else { 
+    window.openModal('modal-auth'); 
+  }
+};
+
+window.handleAuthBtn = function() { 
+  if (window.currentUser) { 
+    window.requireAuth(() => window.showPage('profile')); 
+  } else { 
+    window.openModal('modal-auth'); 
+  }
+};
+
+window.onSearchInput = function() { 
+  clearTimeout(window._searchTimer);
+  window._searchTimer = setTimeout(() => { 
+    if (window.filterProducts) window.filterProducts(); 
+  }, 300);
+};
+
+window.filterCat = function(cat, el) {
+  window.activeCategory = cat;
+  document.querySelectorAll('.cat').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (window.filterProducts) window.filterProducts();
+  if (cat !== 'mind') window.showPage('home');
+};
+
+window.toggleTheme = function() {
+  const html = document.documentElement;
+  const light = html.getAttribute('data-theme') === 'light';
+  html.setAttribute('data-theme', light ? 'dark' : 'light');
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = light ? '🌙' : '☀️';
+};
+
+window.toggleMobile = function() { 
+  const menu = document.getElementById('mobile-menu');
+  if (menu) menu.classList.toggle('open'); 
+};
+
+window.closeMobile = function() { 
+  const menu = document.getElementById('mobile-menu');
+  if (menu) menu.classList.remove('open'); 
+};
+
+window.showPage = function(id) { 
+  console.log('showPage called', id);
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.closeMobile();
+};
+
+window.openModal = function(id) { 
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.add('open'); 
+};
+
+window.closeModal = function(id) { 
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove('open'); 
+};
+
+window.showToast = function(msg, type = 'success') {
+  const toast = document.getElementById('toast');
+  const msgEl = document.getElementById('toast-msg');
+  if (!toast || !msgEl) return;
+  msgEl.textContent = msg;
+  toast.className = 'toast show' + (type === 'error' ? ' error' : type === 'info' ? ' info' : '');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
+};
+
+window.filterProducts = function() {
+  if (window.filterProductsImpl) window.filterProductsImpl();
+};
+
+window.addToCart = function(product) {
+  if (window.addToCartImpl) window.addToCartImpl(product);
+};
+
+window.buyNow = function(product) {
+  if (window.buyNowImpl) window.buyNowImpl(product);
+};
+
+window.toggleWish = function(productId) {
+  if (window.toggleWishImpl) window.toggleWishImpl(productId);
+};
+
+window.openProduct = function(id) {
+  if (window.openProductImpl) window.openProductImpl(id);
+};
+
+window.shareProduct = function(type, id) {
+  if (window.shareProductImpl) window.shareProductImpl(type, id);
+};
+
+window.applyCoupon = function() {
+  if (window.applyCouponImpl) window.applyCouponImpl();
+};
+
+window.doLogin = function() {
+  if (window.doLoginImpl) window.doLoginImpl();
+};
+
+window.doRegister = function() {
+  if (window.doRegisterImpl) window.doRegisterImpl();
+};
+
+window.doLogout = function() {
+  if (window.doLogoutImpl) window.doLogoutImpl();
+};
+
+window.doForgotPassword = function() {
+  if (window.doForgotPasswordImpl) window.doForgotPasswordImpl();
+};
+
+window.doSocialLogin = function(provider) {
+  if (window.doSocialLoginImpl) window.doSocialLoginImpl(provider);
+};
+
+window.switchAuthTab = function(tab, btn) {
+  if (window.switchAuthTabImpl) window.switchAuthTabImpl(tab, btn);
+};
+
+window.uploadAvatar = function(event) {
+  if (window.uploadAvatarImpl) window.uploadAvatarImpl(event);
+};
+
+window.changePassword = function() {
+  if (window.changePasswordImpl) window.changePasswordImpl();
+};
+
+window.saveProfileModal = function() {
+  if (window.saveProfileModalImpl) window.saveProfileModalImpl();
+};
+
+window.confirmDeleteAccount = function() {
+  if (window.confirmDeleteAccountImpl) window.confirmDeleteAccountImpl();
+};
+
+window.submitReview = function() {
+  if (window.submitReviewImpl) window.submitReviewImpl();
+};
+
+window.setStars = function(n) {
+  if (window.setStarsImpl) window.setStarsImpl(n);
+};
+
+window.submitQA = function() {
+  if (window.submitQAImpl) window.submitQAImpl();
+};
+
+window.removeFromCart = function(id) {
+  if (window.removeFromCartImpl) window.removeFromCartImpl(id);
+};
+
+window.initiateStripeCheckout = function() {
+  if (window.initiateStripeCheckoutImpl) window.initiateStripeCheckoutImpl();
+};
+
+window.initiatePayment = function() {
+  if (window.initiatePaymentImpl) window.initiatePaymentImpl();
+};
+
+window.selectPayoutMethod = function(method) {
+  if (window.selectPayoutMethodImpl) window.selectPayoutMethodImpl(method);
+};
+
+window.saveBankDetails = function() {
+  if (window.saveBankDetailsImpl) window.saveBankDetailsImpl();
+};
+
+window.savePaypalDetails = function() {
+  if (window.savePaypalDetailsImpl) window.savePaypalDetailsImpl();
+};
+
+window.requestPayout = function() {
+  if (window.requestPayoutImpl) window.requestPayoutImpl();
+};
+
+window.copyAffLink = function() {
+  if (window.copyAffLinkImpl) window.copyAffLinkImpl();
+};
+
+window.copyMainAffLink = function() {
+  if (window.copyMainAffLinkImpl) window.copyMainAffLinkImpl();
+};
+
+window.toggleNotif = function() {
+  if (window.toggleNotifImpl) window.toggleNotifImpl();
+};
+
+window.markAllRead = function() {
+  if (window.markAllReadImpl) window.markAllReadImpl();
+};
+
+window.submitContactForm = function() {
+  if (window.submitContactFormImpl) window.submitContactFormImpl();
+};
+
+window.acceptCookies = function() {
+  if (window.acceptCookiesImpl) window.acceptCookiesImpl();
+};
+
+window.saveCookieSettings = function() {
+  if (window.saveCookieSettingsImpl) window.saveCookieSettingsImpl();
+};
+
+window.switchTab = function(tab, btn) {
+  if (window.switchTabImpl) window.switchTabImpl(tab, btn);
+};
+
+window.goSlide = function(i) {
+  if (window.goSlideImpl) window.goSlideImpl(i);
+};
+
+window.openLightbox = function(i) {
+  if (window.openLightboxImpl) window.openLightboxImpl(i);
+};
+
+window.closeLightbox = function() {
+  if (window.closeLightboxImpl) window.closeLightboxImpl();
+};
+
+// Kezdeti változók
+window.currentUser = null;
+window.currentProfile = null;
+window._searchTimer = null;
+window._toastTimer = null;
+window.activeCategory = 'mind';
+window.cart = [];
+window.wishlistIds = new Set();
+window.allProducts = [];
+</script>
+<!-- ========== KRITIKUS JAVÍTÁS VÉGE ========== -->
 
 <!-- Swiper -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/8.4.7/swiper-bundle.min.css">
@@ -3483,5 +3728,138 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 }); 
 </script>
+
+   <!-- ========== BIZTOSÍTÉK - IMPLEMENTÁCIÓK ÖSSZEKÖTÉSE ========== -->
+<script>
+// Amikor a fő script betöltött, átadjuk neki a vezérlést
+window.addEventListener('load', function() {
+  console.log('Main script loaded, connecting implementations...');
+  
+  // Átmásoljuk a függvényeket a window objektumra
+  if (typeof requireAuth === 'function' && !window.requireAuthImpl) {
+    window.requireAuthImpl = requireAuth;
+  }
+  if (typeof handleAuthBtn === 'function' && !window.handleAuthBtnImpl) {
+    window.handleAuthBtnImpl = handleAuthBtn;
+  }
+  if (typeof filterProducts === 'function' && !window.filterProductsImpl) {
+    window.filterProductsImpl = filterProducts;
+  }
+  if (typeof addToCart === 'function' && !window.addToCartImpl) {
+    window.addToCartImpl = addToCart;
+  }
+  if (typeof buyNow === 'function' && !window.buyNowImpl) {
+    window.buyNowImpl = buyNow;
+  }
+  if (typeof toggleWish === 'function' && !window.toggleWishImpl) {
+    window.toggleWishImpl = toggleWish;
+  }
+  if (typeof openProduct === 'function' && !window.openProductImpl) {
+    window.openProductImpl = openProduct;
+  }
+  if (typeof shareProduct === 'function' && !window.shareProductImpl) {
+    window.shareProductImpl = shareProduct;
+  }
+  if (typeof applyCoupon === 'function' && !window.applyCouponImpl) {
+    window.applyCouponImpl = applyCoupon;
+  }
+  if (typeof doLogin === 'function' && !window.doLoginImpl) {
+    window.doLoginImpl = doLogin;
+  }
+  if (typeof doRegister === 'function' && !window.doRegisterImpl) {
+    window.doRegisterImpl = doRegister;
+  }
+  if (typeof doLogout === 'function' && !window.doLogoutImpl) {
+    window.doLogoutImpl = doLogout;
+  }
+  if (typeof doForgotPassword === 'function' && !window.doForgotPasswordImpl) {
+    window.doForgotPasswordImpl = doForgotPassword;
+  }
+  if (typeof doSocialLogin === 'function' && !window.doSocialLoginImpl) {
+    window.doSocialLoginImpl = doSocialLogin;
+  }
+  if (typeof switchAuthTab === 'function' && !window.switchAuthTabImpl) {
+    window.switchAuthTabImpl = switchAuthTab;
+  }
+  if (typeof uploadAvatar === 'function' && !window.uploadAvatarImpl) {
+    window.uploadAvatarImpl = uploadAvatar;
+  }
+  if (typeof changePassword === 'function' && !window.changePasswordImpl) {
+    window.changePasswordImpl = changePassword;
+  }
+  if (typeof saveProfileModal === 'function' && !window.saveProfileModalImpl) {
+    window.saveProfileModalImpl = saveProfileModal;
+  }
+  if (typeof confirmDeleteAccount === 'function' && !window.confirmDeleteAccountImpl) {
+    window.confirmDeleteAccountImpl = confirmDeleteAccount;
+  }
+  if (typeof submitReview === 'function' && !window.submitReviewImpl) {
+    window.submitReviewImpl = submitReview;
+  }
+  if (typeof setStars === 'function' && !window.setStarsImpl) {
+    window.setStarsImpl = setStars;
+  }
+  if (typeof submitQA === 'function' && !window.submitQAImpl) {
+    window.submitQAImpl = submitQA;
+  }
+  if (typeof removeFromCart === 'function' && !window.removeFromCartImpl) {
+    window.removeFromCartImpl = removeFromCart;
+  }
+  if (typeof initiateStripeCheckout === 'function' && !window.initiateStripeCheckoutImpl) {
+    window.initiateStripeCheckoutImpl = initiateStripeCheckout;
+  }
+  if (typeof initiatePayment === 'function' && !window.initiatePaymentImpl) {
+    window.initiatePaymentImpl = initiatePayment;
+  }
+  if (typeof selectPayoutMethod === 'function' && !window.selectPayoutMethodImpl) {
+    window.selectPayoutMethodImpl = selectPayoutMethod;
+  }
+  if (typeof saveBankDetails === 'function' && !window.saveBankDetailsImpl) {
+    window.saveBankDetailsImpl = saveBankDetails;
+  }
+  if (typeof savePaypalDetails === 'function' && !window.savePaypalDetailsImpl) {
+    window.savePaypalDetailsImpl = savePaypalDetails;
+  }
+  if (typeof requestPayout === 'function' && !window.requestPayoutImpl) {
+    window.requestPayoutImpl = requestPayout;
+  }
+  if (typeof copyAffLink === 'function' && !window.copyAffLinkImpl) {
+    window.copyAffLinkImpl = copyAffLink;
+  }
+  if (typeof copyMainAffLink === 'function' && !window.copyMainAffLinkImpl) {
+    window.copyMainAffLinkImpl = copyMainAffLink;
+  }
+  if (typeof toggleNotif === 'function' && !window.toggleNotifImpl) {
+    window.toggleNotifImpl = toggleNotif;
+  }
+  if (typeof markAllRead === 'function' && !window.markAllReadImpl) {
+    window.markAllReadImpl = markAllRead;
+  }
+  if (typeof submitContactForm === 'function' && !window.submitContactFormImpl) {
+    window.submitContactFormImpl = submitContactForm;
+  }
+  if (typeof acceptCookies === 'function' && !window.acceptCookiesImpl) {
+    window.acceptCookiesImpl = acceptCookies;
+  }
+  if (typeof saveCookieSettings === 'function' && !window.saveCookieSettingsImpl) {
+    window.saveCookieSettingsImpl = saveCookieSettings;
+  }
+  if (typeof switchTab === 'function' && !window.switchTabImpl) {
+    window.switchTabImpl = switchTab;
+  }
+  if (typeof goSlide === 'function' && !window.goSlideImpl) {
+    window.goSlideImpl = goSlide;
+  }
+  if (typeof openLightbox === 'function' && !window.openLightboxImpl) {
+    window.openLightboxImpl = openLightbox;
+  }
+  if (typeof closeLightbox === 'function' && !window.closeLightboxImpl) {
+    window.closeLightboxImpl = closeLightbox;
+  }
+});
+</script>
+<!-- ========== BIZTOSÍTÉK VÉGE ========== -->
+</body>
+</html>
 </body>
 </html>
