@@ -1,0 +1,3126 @@
+<!DOCTYPE html>
+<html lang="hu" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DigiPiac – Magyar Digitális Piactér</title>
+<meta name="description" content="Magyar digitális termékek piactere. Vásárolj és adj el e-bookot, tanfolyamot, sablont forintban, biztonságosan.">
+
+<!-- Swiper -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Swiper/8.4.7/swiper-bundle.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Swiper/8.4.7/swiper-bundle.min.js"></script>
+<!-- Chart.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Stripe.js -->
+<script src="https://js.stripe.com/v3/"></script>
+
+<style>
+/* ════════════════════════════════════════════════
+   RESET & CSS VARIABLES
+════════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --p:#6c63ff;--s:#3ecfcf;
+  --dark:#0f0f1a;--card:#1a1a2e;--border:#2a2a4a;
+  --text:#fff;--muted:#aaa;
+  --success:#2ecc71;--danger:#e74c3c;--warning:#f39c12;
+  --bg:#0f0f1a
+}
+[data-theme="light"]{
+  --dark:#f0f0f8;--card:#fff;--border:#ddd;
+  --text:#111;--muted:#666;--bg:#f0f0f8
+}
+body{font-family:'Segoe UI',sans-serif;background:var(--dark);color:var(--text);min-height:100vh;transition:background .3s,color .3s}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;font-family:inherit}
+
+/* ════════════════════════════════════════════════
+   BUTTONS
+════════════════════════════════════════════════ */
+.btn{padding:8px 18px;border-radius:8px;font-weight:600;font-size:.85rem;border:none;transition:all .2s}
+.btn:hover{opacity:.85;transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-primary{background:linear-gradient(135deg,var(--p),var(--s));color:#fff}
+.btn-outline{background:transparent;color:var(--text);border:1px solid var(--border)}
+.btn-success{background:var(--success);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-warning{background:var(--warning);color:#000}
+.btn-lg{padding:14px 28px;font-size:1rem;border-radius:12px}
+.btn-full{width:100%}
+
+/* ════════════════════════════════════════════════
+   NAV
+════════════════════════════════════════════════ */
+nav{background:#12122288;backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:60px;gap:10px}
+[data-theme="light"] nav{background:#ffffffcc}
+.logo{font-size:1.4rem;font-weight:800;background:linear-gradient(135deg,var(--p),var(--s));-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;cursor:pointer}
+.nav-links{display:flex;gap:4px;align-items:center}
+.nav-links a,.nav-links button.nav-btn{color:var(--muted);font-size:.82rem;transition:all .2s;background:none;border:none;padding:6px 9px;border-radius:8px;white-space:nowrap}
+.nav-links a:hover,.nav-links button.nav-btn:hover{color:var(--text);background:#ffffff10}
+.badge-pill{background:var(--danger);color:#fff;border-radius:50%;padding:1px 6px;font-size:.68rem;font-weight:700;margin-left:2px}
+.hamburger{display:none;flex-direction:column;gap:5px;background:none;border:none;padding:6px;cursor:pointer}
+.hamburger span{width:22px;height:2px;background:var(--text);border-radius:2px;transition:all .3s;display:block}
+.mobile-menu{display:none;position:fixed;top:60px;left:0;right:0;background:var(--card);border-bottom:1px solid var(--border);padding:12px;z-index:99;flex-direction:column;gap:4px}
+.mobile-menu.open{display:flex}
+.mobile-menu a,.mobile-menu button{color:var(--text);background:none;border:none;padding:10px 14px;border-radius:8px;font-size:.9rem;text-align:left;width:100%;transition:background .2s}
+.mobile-menu a:hover,.mobile-menu button:hover{background:var(--border)}
+@media(max-width:860px){.nav-links{display:none}.hamburger{display:flex}}
+
+/* ════════════════════════════════════════════════
+   PROGRESS & BACK-TOP
+════════════════════════════════════════════════ */
+#page-progress{position:fixed;top:0;left:0;height:3px;background:linear-gradient(135deg,var(--p),var(--s));z-index:200;width:0%;transition:width .3s}
+#back-top{position:fixed;bottom:80px;right:20px;width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--s));border:none;color:#fff;font-size:1.2rem;z-index:90;opacity:0;pointer-events:none;transition:opacity .3s;box-shadow:0 4px 15px #6c63ff44}
+#back-top.show{opacity:1;pointer-events:all}
+
+/* ════════════════════════════════════════════════
+   PAGES
+════════════════════════════════════════════════ */
+.page{display:none}
+.page.active{display:block}
+
+/* ════════════════════════════════════════════════
+   HERO
+════════════════════════════════════════════════ */
+.hero{background:linear-gradient(135deg,#1a1a3e 0%,#0f0f1a 60%,#0a1a1a 100%);padding:80px 24px 60px;text-align:center;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,#6c63ff22 0%,transparent 70%)}
+.hero h1{font-size:clamp(2rem,5vw,3.4rem);font-weight:900;line-height:1.1;margin-bottom:16px;position:relative}
+.hero h1 span{background:linear-gradient(135deg,var(--p),var(--s));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero p{color:var(--muted);font-size:1.05rem;max-width:580px;margin:0 auto 32px;position:relative}
+.hero-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;position:relative}
+.stats{display:flex;gap:40px;justify-content:center;margin-top:50px;flex-wrap:wrap;position:relative}
+.stat strong{display:block;font-size:2rem;font-weight:900;background:linear-gradient(135deg,var(--p),var(--s));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.stat span{color:var(--muted);font-size:.8rem}
+
+/* ════════════════════════════════════════════════
+   SEARCH & FILTERS
+════════════════════════════════════════════════ */
+.search-bar{max-width:680px;margin:0 auto;padding:20px 24px;position:relative}
+.search-bar input{width:100%;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:14px;padding:14px 140px 14px 20px;font-size:.95rem;outline:none;transition:border .2s,box-shadow .2s}
+.search-bar input:focus{border-color:var(--p);box-shadow:0 0 0 3px #6c63ff22}
+.search-bar button{position:absolute;right:32px;top:50%;transform:translateY(-50%);background:linear-gradient(135deg,var(--p),var(--s));border:none;color:#fff;padding:9px 18px;border-radius:10px;font-weight:600;font-size:.85rem}
+.filter-bar{display:flex;gap:10px;padding:0 24px 16px;align-items:center;flex-wrap:wrap}
+.filter-select{background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 12px;font-size:.82rem;outline:none;cursor:pointer}
+.filter-select option{background:var(--card)}
+.cats{display:flex;gap:8px;padding:0 24px 22px;overflow-x:auto;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{padding:7px 18px;border-radius:20px;border:1px solid var(--border);color:var(--muted);font-size:.82rem;white-space:nowrap;transition:all .2s;background:var(--card);cursor:pointer}
+.cat:hover,.cat.active{background:linear-gradient(135deg,var(--p),var(--s));color:#fff;border-color:transparent}
+
+/* ════════════════════════════════════════════════
+   GRID & CARDS
+════════════════════════════════════════════════ */
+.section{padding:0 24px 50px}
+.section-title{font-size:1.15rem;font-weight:700;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px}
+.skeleton{background:linear-gradient(90deg,var(--card) 25%,var(--border) 50%,var(--card) 75%);background-size:200% 100%;animation:shimmer 1.5s infinite;border-radius:8px}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skeleton-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.skeleton-thumb{height:160px}
+.skeleton-line{height:14px;margin:10px 14px}
+.skeleton-line.short{width:60%}
+.product-card{background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;transition:transform .25s,border-color .25s,box-shadow .25s;cursor:pointer;position:relative}
+.product-card:hover{transform:translateY(-5px);border-color:var(--p);box-shadow:0 12px 40px #6c63ff22}
+.product-thumb{height:160px;display:flex;align-items:center;justify-content:center;font-size:3.5rem;position:relative;background:linear-gradient(135deg,#1a1a3e,#2a1a4e);overflow:hidden}
+.product-thumb img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+.play-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0007;opacity:0;transition:opacity .2s}
+.product-card:hover .play-overlay{opacity:1}
+.play-btn-sm{width:46px;height:46px;border-radius:50%;background:var(--p);display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.product-badge{position:absolute;top:10px;right:10px;background:var(--warning);color:#000;font-size:.68rem;font-weight:700;padding:3px 8px;border-radius:20px;z-index:2}
+.wish-btn{position:absolute;top:10px;left:10px;background:#0008;border:none;border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:transform .2s;color:#fff;z-index:2}
+.wish-btn:hover{transform:scale(1.2)}
+.wish-btn.active{color:#e74c3c}
+.share-btn{position:absolute;bottom:10px;right:10px;background:#0008;border:none;border-radius:50%;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:.85rem;color:#fff;z-index:2;opacity:0;transition:opacity .2s}
+.product-card:hover .share-btn{opacity:1}
+.product-info{padding:16px}
+.product-cat{font-size:.72rem;color:var(--s);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.product-name{font-weight:700;margin-bottom:5px;font-size:.92rem;line-height:1.3}
+.product-seller{color:var(--muted);font-size:.78rem;margin-bottom:10px}
+.product-footer{display:flex;align-items:center;justify-content:space-between}
+.product-price{font-size:1.15rem;font-weight:800;color:var(--s)}
+.product-rating{color:var(--warning);font-size:.8rem}
+
+/* ════════════════════════════════════════════════
+   PRODUCT DETAIL
+════════════════════════════════════════════════ */
+.product-detail{max-width:980px;margin:0 auto;padding:32px 20px}
+.breadcrumb{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:.8rem;margin-bottom:18px;flex-wrap:wrap}
+.breadcrumb a{color:var(--muted);transition:color .2s}
+.breadcrumb a:hover{color:var(--text)}
+.breadcrumb .sep{color:var(--border)}
+.back-btn{color:var(--muted);font-size:.85rem;margin-bottom:8px;display:inline-flex;align-items:center;gap:6px;background:none;border:none;transition:color .2s}
+.back-btn:hover{color:var(--text)}
+.detail-grid{display:grid;grid-template-columns:1fr 330px;gap:30px}
+@media(max-width:720px){.detail-grid{grid-template-columns:1fr}}
+.gallery-wrap{border-radius:16px;overflow:hidden;margin-bottom:22px;background:#000}
+.swiper{width:100%;aspect-ratio:16/9}
+.swiper-slide{display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1a1a3e,#0f0f1a);font-size:5rem;position:relative;cursor:pointer}
+.swiper-slide img{width:100%;height:100%;object-fit:cover}
+.swiper-slide .slide-label{position:absolute;bottom:12px;left:12px;background:#0009;color:#fff;font-size:.75rem;padding:4px 10px;border-radius:20px}
+.gallery-thumbs{display:flex;gap:8px;padding:8px;background:var(--card);overflow-x:auto;scrollbar-width:none}
+.gallery-thumbs::-webkit-scrollbar{display:none}
+.g-thumb{width:60px;height:45px;border-radius:6px;border:2px solid transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.5rem;background:#2a2a4a;flex-shrink:0;transition:border-color .2s;overflow:hidden}
+.g-thumb.active{border-color:var(--p)}
+.g-thumb img{width:100%;height:100%;object-fit:cover}
+.yt-embed{width:100%;aspect-ratio:16/9;border:none;border-radius:12px}
+.lightbox{display:none;position:fixed;inset:0;background:#000e;z-index:500;align-items:center;justify-content:center}
+.lightbox.open{display:flex}
+.lightbox-inner{position:relative;max-width:90vw;max-height:90vh;display:flex;align-items:center;justify-content:center;font-size:8rem}
+.lightbox-close{position:absolute;top:-40px;right:0;background:none;border:none;color:#fff;font-size:1.8rem;cursor:pointer}
+.lightbox-img{max-width:100%;max-height:80vh;border-radius:12px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:22px;overflow-x:auto;scrollbar-width:none}
+.tab-btn{background:none;border:none;color:var(--muted);padding:10px 16px;font-size:.85rem;font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;white-space:nowrap}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--p)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+.detail-title{font-size:1.7rem;font-weight:900;margin-bottom:10px;line-height:1.2}
+.detail-meta{display:flex;gap:14px;color:var(--muted);font-size:.83rem;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.detail-desc{color:#ccc;line-height:1.75;margin-bottom:20px;font-size:.92rem}
+[data-theme="light"] .detail-desc{color:#444}
+.detail-tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.tag{background:#2a2a4a;color:var(--muted);padding:5px 14px;border-radius:20px;font-size:.78rem}
+[data-theme="light"] .tag{background:#eee}
+.info-badge{background:#1a2a3a;border:1px solid #2a4a6a;border-radius:8px;padding:6px 12px;font-size:.78rem;color:#9cf}
+[data-theme="light"] .info-badge{background:#e8f4ff;border-color:#aad4ff;color:#2266aa}
+.badge-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.buy-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;position:sticky;top:72px}
+.buy-price{font-size:2.4rem;font-weight:900;color:var(--s);margin-bottom:4px}
+.buy-price-orig{text-decoration:line-through;color:var(--muted);font-size:1rem;margin-bottom:10px}
+.afs-box{background:#1a2a1a;border:1px solid #2a4a2a;border-radius:10px;padding:12px;margin:12px 0;font-size:.78rem;color:#9ef;line-height:1.6}
+.buy-features{margin:16px 0;list-style:none}
+.buy-features li{padding:7px 0;color:var(--muted);font-size:.83rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.buy-features li::before{content:"✓";color:var(--success);font-weight:700}
+.gdpr-note{font-size:.72rem;color:var(--muted);margin-top:12px;line-height:1.6}
+.coupon-row{display:flex;gap:8px;margin:14px 0}
+.coupon-row input{flex:1;background:#0f0f1a;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:.85rem;outline:none}
+[data-theme="light"] .coupon-row input{background:#f5f5f5}
+.coupon-row input:focus{border-color:var(--p)}
+.affiliate-box{background:#1a1a3e;border:1px solid #6c63ff33;border-radius:12px;padding:16px;margin-top:16px;font-size:.83rem}
+[data-theme="light"] .affiliate-box{background:#f0f0ff}
+.affiliate-box h4{color:var(--s);margin-bottom:10px}
+.aff-link{background:#0f0f1a;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:.75rem;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:8px;word-break:break-all}
+[data-theme="light"] .aff-link{background:#eee}
+.aff-link button{background:var(--p);color:#fff;border:none;border-radius:6px;padding:5px 12px;font-size:.72rem;white-space:nowrap;flex-shrink:0}
+
+/* ════════════════════════════════════════════════
+   STRIPE WARNING BOX
+════════════════════════════════════════════════ */
+.stripe-info-box{background:#1a2a3a;border:1px solid #3a6a9a;border-radius:12px;padding:16px;margin-bottom:20px}
+.stripe-info-box h4{color:#5bc8f5;margin-bottom:8px;font-size:.88rem}
+.stripe-info-box p{color:var(--muted);font-size:.78rem;line-height:1.6}
+.stripe-info-box code{background:#0f1f2f;padding:2px 6px;border-radius:4px;font-size:.75rem;color:#9cf}
+.security-notice{background:#1a2a1a;border:1px solid #2a4a2a;border-radius:10px;padding:14px;margin-bottom:16px;font-size:.78rem;color:#9ef;line-height:1.7}
+.security-notice strong{color:var(--success)}
+
+/* ════════════════════════════════════════════════
+   REVIEWS & QA
+════════════════════════════════════════════════ */
+.qa-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px}
+.qa-question{font-weight:700;margin-bottom:8px;display:flex;gap:8px;align-items:flex-start}
+.qa-answer{color:var(--muted);font-size:.85rem;line-height:1.6;padding-left:24px;border-left:2px solid var(--p)}
+.qa-form{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-top:14px}
+.qa-form input,.qa-form textarea{width:100%;background:#0f0f1a;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;font-size:.85rem;outline:none;margin-bottom:10px;transition:border .2s}
+[data-theme="light"] .qa-form input,[data-theme="light"] .qa-form textarea{background:#f5f5f5}
+.qa-form input:focus,.qa-form textarea:focus{border-color:var(--p)}
+.qa-form textarea{height:70px;resize:none}
+.review-summary{display:flex;gap:24px;align-items:center;margin-bottom:22px;background:var(--card);border-radius:14px;padding:22px;border:1px solid var(--border)}
+.big-rating{font-size:3.2rem;font-weight:900;color:var(--warning);text-align:center}
+.rating-bars{flex:1}
+.rbar{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:.78rem;color:var(--muted)}
+.rbar-bg{flex:1;height:6px;background:var(--border);border-radius:4px}
+.rbar-fill{height:100%;background:var(--warning);border-radius:4px}
+.review-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:14px}
+.reviewer{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.reviewer-avatar{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--s));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.9rem;flex-shrink:0;overflow:hidden}
+.reviewer-avatar img{width:100%;height:100%;object-fit:cover}
+.reviewer-name{font-weight:600;font-size:.9rem}
+.reviewer-date{color:var(--muted);font-size:.75rem}
+.review-stars{color:var(--warning);margin-bottom:8px}
+.review-text{color:#ccc;font-size:.85rem;line-height:1.65}
+[data-theme="light"] .review-text{color:#444}
+.review-verified{font-size:.72rem;color:var(--success);margin-top:6px}
+.review-form{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;margin-top:18px}
+.review-form h4{margin-bottom:14px}
+.star-select{display:flex;gap:6px;margin-bottom:12px;font-size:1.8rem;cursor:pointer}
+.star-select span{transition:transform .1s;filter:grayscale(1);opacity:.4}
+.star-select span.active{filter:none;opacity:1;transform:scale(1.15)}
+.review-form textarea,.review-form input{width:100%;background:#0f0f1a;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-size:.85rem;outline:none;margin-bottom:10px;transition:border .2s}
+[data-theme="light"] .review-form textarea,[data-theme="light"] .review-form input{background:#f5f5f5}
+.review-form textarea:focus,.review-form input:focus{border-color:var(--p)}
+.review-form textarea{height:85px;resize:none}
+
+/* ════════════════════════════════════════════════
+   SELLER PAGE
+════════════════════════════════════════════════ */
+.seller-page{max-width:920px;margin:0 auto;padding:32px 20px}
+.seller-hero{background:linear-gradient(135deg,#1a1a3e,var(--card));border-radius:18px;padding:32px;display:flex;gap:22px;align-items:flex-start;margin-bottom:26px;border:1px solid var(--border);flex-wrap:wrap}
+.seller-avatar{width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--s));display:flex;align-items:center;justify-content:center;font-size:2.2rem;font-weight:800;flex-shrink:0;box-shadow:0 0 30px #6c63ff44;overflow:hidden}
+.seller-avatar img{width:100%;height:100%;object-fit:cover}
+.seller-stats{display:flex;gap:28px;flex-wrap:wrap;margin-top:14px}
+.seller-stat{text-align:center}
+.seller-stat strong{display:block;font-size:1.4rem;font-weight:800;color:var(--s)}
+.seller-stat span{color:var(--muted);font-size:.75rem}
+.seller-bio{color:var(--muted);font-size:.85rem;line-height:1.65;margin-top:10px;max-width:500px}
+.verified{background:#1a3a1a;color:var(--success);padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;margin-top:8px}
+
+/* ════════════════════════════════════════════════
+   PROFILE
+════════════════════════════════════════════════ */
+.profile-page{max-width:820px;margin:0 auto;padding:32px 20px}
+.profile-hero{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;display:flex;gap:20px;align-items:center;margin-bottom:24px;flex-wrap:wrap}
+.profile-avatar-big{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--s));display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:800;flex-shrink:0;overflow:hidden;cursor:pointer;position:relative}
+.profile-avatar-big img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;border-radius:50%}
+.avatar-overlay{position:absolute;inset:0;background:#0008;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s;border-radius:50%;font-size:1.2rem}
+.profile-avatar-big:hover .avatar-overlay{opacity:1}
+.purchase-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
+.purchase-thumb{font-size:2rem;width:50px;height:50px;background:#2a2a4a;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ════════════════════════════════════════════════
+   FORMS
+════════════════════════════════════════════════ */
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:6px;font-weight:600}
+.form-group input,.form-group select,.form-group textarea{width:100%;background:#0f0f1a;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:.9rem;outline:none;transition:border .2s}
+[data-theme="light"] .form-group input,[data-theme="light"] .form-group select,[data-theme="light"] .form-group textarea{background:#f5f5f5}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--p)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+
+/* ════════════════════════════════════════════════
+   CART
+════════════════════════════════════════════════ */
+.cart-page{max-width:780px;margin:0 auto;padding:32px 20px}
+.cart-item{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;display:flex;align-items:center;gap:16px;margin-bottom:12px}
+.cart-thumb{font-size:2.2rem;width:56px;height:56px;background:#2a2a4a;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.cart-item-info{flex:1}
+.cart-item-info .name{font-weight:700;font-size:.9rem;margin-bottom:3px}
+.cart-item-info .seller{color:var(--muted);font-size:.78rem}
+.cart-item-price{font-size:1.15rem;font-weight:800;color:var(--s);white-space:nowrap}
+.cart-remove{background:none;border:none;color:var(--muted);font-size:1.2rem;padding:4px;transition:color .2s}
+.cart-remove:hover{color:var(--danger)}
+.cart-summary{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-top:20px}
+.cart-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:.88rem}
+.cart-row.total{font-size:1.15rem;font-weight:800;border-bottom:none;color:var(--s);padding-top:14px}
+.cart-row.discount{color:var(--success)}
+
+/* ════════════════════════════════════════════════
+   CHECKOUT
+════════════════════════════════════════════════ */
+.checkout-page{max-width:700px;margin:0 auto;padding:32px 20px}
+.checkout-box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:24px;margin-bottom:18px}
+.checkout-box h3{font-size:1rem;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.payment-provider-badge{display:flex;align-items:center;gap:10px;background:#1a2a3a;border:1px solid #3a6a9a;border-radius:10px;padding:12px 16px;margin-bottom:16px}
+.payment-provider-badge .stripe-logo{font-size:1.4rem;font-weight:900;color:#635bff;letter-spacing:-1px}
+.payment-provider-badge p{font-size:.78rem;color:var(--muted);line-height:1.5}
+.gdpr-check{display:flex;gap:10px;align-items:flex-start;margin:10px 0;font-size:.8rem;color:var(--muted);line-height:1.6}
+.gdpr-check input{margin-top:2px;accent-color:var(--p)}
+.gdpr-check a{color:var(--s)}
+.secure-badge{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.78rem;margin-top:14px;justify-content:center}
+
+/* ════════════════════════════════════════════════
+   SUCCESS
+════════════════════════════════════════════════ */
+.success-page{text-align:center;padding:80px 20px;max-width:600px;margin:0 auto}
+.success-icon{font-size:5.5rem;margin-bottom:18px;display:block;animation:bounce .6s ease}
+@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.download-card{background:var(--card);border:2px solid var(--success);border-radius:16px;padding:22px;max-width:440px;margin:0 auto 22px}
+.dl-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);font-size:.85rem}
+.dl-item:last-child{border-bottom:none}
+
+/* ════════════════════════════════════════════════
+   SELL
+════════════════════════════════════════════════ */
+.sell-page{max-width:780px;margin:0 auto;padding:32px 20px}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:34px}
+@media(max-width:580px){.steps{grid-template-columns:1fr}}
+.step{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;text-align:center}
+.step-num{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--s));display:flex;align-items:center;justify-content:center;font-weight:800;margin:0 auto 12px;font-size:1.1rem}
+.upload-area{border:2px dashed var(--border);border-radius:16px;padding:40px;text-align:center;margin-bottom:16px;transition:all .2s;cursor:pointer;background:#ffffff03;position:relative}
+.upload-area:hover{border-color:var(--p);background:#6c63ff08}
+.upload-area input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.price-preview{background:#1a2a1a;border:1px solid #2a4a2a;border-radius:10px;padding:14px;margin:12px 0;font-size:.83rem}
+[data-theme="light"] .price-preview{background:#e8f5e8;border-color:#a8d5a8}
+.price-preview .row{display:flex;justify-content:space-between;padding:4px 0;color:var(--muted)}
+.price-preview .row.you{color:var(--success);font-weight:700;font-size:.9rem;padding-top:8px;border-top:1px solid #2a4a2a;margin-top:4px}
+.sell-form-input{width:100%;background:#0f0f1a;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:.9rem;outline:none;transition:border .2s;margin-bottom:12px;font-family:inherit}
+[data-theme="light"] .sell-form-input{background:#f5f5f5}
+.sell-form-input:focus{border-color:var(--p)}
+.sell-form-label{display:block;font-size:.82rem;color:var(--muted);margin-bottom:5px;font-weight:600}
+.sell-section{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:16px}
+.sell-section h3{font-size:.95rem;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+
+/* ════════════════════════════════════════════════
+   DASHBOARD
+════════════════════════════════════════════════ */
+.dashboard{max-width:980px;margin:0 auto;padding:32px 20px}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:16px;margin-bottom:28px}
+.dash-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.dash-card .value{font-size:1.8rem;font-weight:800;margin-bottom:4px}
+.dash-card .label{color:var(--muted);font-size:.8rem}
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;overflow-x:auto;margin-bottom:20px}
+.table-wrap h3{font-size:.95rem;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.table{width:100%;border-collapse:collapse}
+.table th{text-align:left;padding:9px;color:var(--muted);font-size:.78rem;border-bottom:1px solid var(--border)}
+.table td{padding:10px 9px;font-size:.83rem;border-bottom:1px solid var(--border)}
+.table tr:last-child td{border-bottom:none}
+.status-badge{padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:600;display:inline-block}
+.status-badge.paid{background:#1a3a1a;color:var(--success)}
+.status-badge.pending{background:#3a3a1a;color:var(--warning)}
+.status-badge.refund{background:#3a1a1a;color:var(--danger)}
+.chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px}
+.chart-wrap h3{font-size:.95rem;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+canvas{max-height:220px}
+
+/* ════════════════════════════════════════════════
+   ADMIN
+════════════════════════════════════════════════ */
+.admin-page{max-width:980px;margin:0 auto;padding:32px 20px}
+.admin-tabs{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap}
+.admin-tab{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px;font-size:.85rem;color:var(--muted);transition:all .2s}
+.admin-tab.active{background:linear-gradient(135deg,var(--p),var(--s));color:#fff;border-color:transparent}
+.admin-panel{display:none}
+.admin-panel.active{display:block}
+.user-row{display:flex;align-items:center;gap:12px;padding:12px;background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:8px}
+.user-ava{width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--p),var(--s));display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;overflow:hidden}
+.user-ava img{width:100%;height:100%;object-fit:cover}
+.pending-product{background:var(--card);border:1px solid var(--warning);border-radius:12px;padding:16px;margin-bottom:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+
+/* ════════════════════════════════════════════════
+   NOTIFICATIONS
+════════════════════════════════════════════════ */
+.notif-btn{position:relative}
+.notif-dot{position:absolute;top:4px;right:4px;width:8px;height:8px;background:var(--danger);border-radius:50%}
+.notif-dropdown{position:absolute;top:52px;right:0;width:320px;background:var(--card);border:1px solid var(--border);border-radius:14px;z-index:150;overflow:hidden;box-shadow:0 8px 30px #00000066;display:none}
+.notif-dropdown.open{display:block}
+.notif-header{padding:14px 16px;border-bottom:1px solid var(--border);font-weight:700;font-size:.9rem;display:flex;justify-content:space-between;align-items:center}
+.notif-item{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;transition:background .2s;cursor:pointer}
+.notif-item:hover{background:#ffffff08}
+.notif-item.unread{background:#6c63ff0a}
+.notif-icon{font-size:1.4rem;flex-shrink:0}
+.notif-text{font-size:.82rem;line-height:1.5}
+.notif-time{color:var(--muted);font-size:.72rem;margin-top:3px}
+
+/* ════════════════════════════════════════════════
+   PAYOUT
+════════════════════════════════════════════════ */
+.payout-page{max-width:820px;margin:0 auto;padding:32px 20px}
+.payout-balance{background:linear-gradient(135deg,var(--p),var(--s));border-radius:16px;padding:28px;margin-bottom:24px;text-align:center}
+.payout-balance .amount{font-size:3rem;font-weight:900;color:#fff}
+.payout-balance .label{color:#ffffffaa;font-size:.9rem;margin-top:6px}
+
+/* ════════════════════════════════════════════════
+   AFFILIATE
+════════════════════════════════════════════════ */
+.aff-page{max-width:820px;margin:0 auto;padding:32px 20px}
+.aff-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:26px}
+.aff-stat-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px}
+.aff-stat-card .val{font-size:1.7rem;font-weight:800;margin-bottom:4px}
+
+/* ════════════════════════════════════════════════
+   CONTACT
+════════════════════════════════════════════════ */
+.contact-page{max-width:700px;margin:0 auto;padding:32px 20px}
+.ticket-item{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:10px}
+.ticket-status{padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:600}
+.ticket-status.open{background:#1a3a1a;color:var(--success)}
+.ticket-status.closed{background:#2a2a2a;color:var(--muted)}
+
+/* ════════════════════════════════════════════════
+   MISC
+════════════════════════════════════════════════ */
+.wishlist-page{max-width:920px;margin:0 auto;padding:32px 20px}
+.legal-page{max-width:700px;margin:0 auto;padding:32px 20px}
+.legal-section{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:16px}
+.legal-section h3{margin-bottom:14px;color:var(--s)}
+.legal-section p,.legal-section li{color:var(--muted);font-size:.85rem;line-height:1.8;margin-bottom:6px}
+.modal{display:none;position:fixed;inset:0;background:#000c;z-index:200;align-items:center;justify-content:center;padding:20px}
+.modal.open{display:flex}
+.modal-box{background:var(--card);border-radius:18px;padding:30px;max-width:520px;width:100%;border:1px solid var(--border);max-height:90vh;overflow-y:auto}
+.modal-box h3{font-size:1.1rem;margin-bottom:16px}
+.modal-close{float:right;background:none;border:none;color:var(--muted);font-size:1.4rem;margin-top:-4px;line-height:1;cursor:pointer}
+.modal-close:hover{color:var(--text)}
+.legal-content{color:var(--muted);font-size:.82rem;line-height:1.85;max-height:400px;overflow-y:auto}
+.legal-content h4{color:var(--text);margin:16px 0 6px;font-size:.9rem}
+.legal-content p{margin-bottom:8px}
+.auth-tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px}
+.auth-tab{flex:1;padding:10px;text-align:center;background:none;border:none;color:var(--muted);font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .2s;cursor:pointer}
+.auth-tab.active{color:var(--text);border-bottom-color:var(--p)}
+.auth-form input{width:100%;background:#0f0f1a;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:10px 12px;font-size:.88rem;outline:none;margin-bottom:12px;transition:border .2s;font-family:inherit}
+[data-theme="light"] .auth-form input{background:#f5f5f5}
+.auth-form input:focus{border-color:var(--p)}
+.social-auth{display:flex;gap:8px;margin-top:14px}
+.social-auth button{flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--card);color:var(--text);font-size:.85rem;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .2s;cursor:pointer}
+.social-auth button:hover{border-color:var(--p)}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card);border:1px solid var(--success);border-radius:12px;padding:14px 20px;z-index:300;display:flex;align-items:center;gap:10px;transform:translateY(100px);opacity:0;transition:all .35s;font-size:.85rem;max-width:320px;box-shadow:0 8px 30px #00000066}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.error{border-color:var(--danger)}
+.toast.info{border-color:var(--s)}
+.cookie-banner{position:fixed;bottom:0;left:0;right:0;background:#161628;border-top:1px solid var(--border);padding:16px 24px;z-index:150;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+[data-theme="light"] .cookie-banner{background:#fff}
+.cookie-banner p{color:var(--muted);font-size:.82rem;flex:1;min-width:200px}
+.cookie-banner a{color:var(--s)}
+.cookie-btns{display:flex;gap:8px}
+.page-title{font-size:1.4rem;font-weight:800;margin-bottom:6px}
+.page-subtitle{color:var(--muted);font-size:.88rem;margin-bottom:28px}
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state .emoji{font-size:4rem;display:block;margin-bottom:14px}
+.empty-state p{margin-bottom:20px}
+.divider{border:none;border-top:1px solid var(--border);margin:24px 0}
+.loading-spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--p);border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.danger-zone{background:#1a0a0a;border:1px solid #4a1a1a;border-radius:12px;padding:20px;margin-top:20px}
+.danger-zone h4{color:var(--danger);margin-bottom:12px}
+footer{background:#0c0c1a;border-top:1px solid var(--border);padding:40px 20px;margin-top:60px}
+[data-theme="light"] footer{background:#f5f5f5}
+.footer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:28px;max-width:900px;margin:0 auto}
+.footer-col h4{margin-bottom:12px;font-size:.9rem}
+.footer-col a{display:block;color:var(--muted);font-size:.82rem;margin-bottom:8px;transition:color .2s}
+.footer-col a:hover{color:var(--text)}
+.footer-logo{font-size:1.6rem;font-weight:900;background:linear-gradient(135deg,var(--p),var(--s));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:10px}
+.footer-tagline{color:var(--muted);font-size:.8rem;line-height:1.6;margin-bottom:14px}
+.social-links{display:flex;gap:10px;margin-top:6px}
+.social-links a{width:34px;height:34px;border-radius:8px;background:#2a2a4a;display:flex;align-items:center;justify-content:center;font-size:1rem;transition:background .2s}
+[data-theme="light"] .social-links a{background:#ddd}
+.social-links a:hover{background:var(--p)}
+.footer-bottom{text-align:center;color:var(--muted);font-size:.76rem;margin-top:30px;padding-top:20px;border-top:1px solid var(--border);max-width:900px;margin-left:auto;margin-right:auto}
+.footer-bottom a{color:var(--s)}
+</style>
+</head>
+<body>
+
+<div id="page-progress"></div>
+<button id="back-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">↑</button>
+
+<!-- ══════════════════════════════════════════════
+     NAV
+══════════════════════════════════════════════ -->
+<nav>
+  <div class="logo" onclick="showPage('home')">🛍️ DigiPiac</div>
+  <div class="nav-links">
+    <a href="#" onclick="showPage('home');return false">Főoldal</a>
+    <a href="#" onclick="showPage('wishlist');return false">❤️ Kedvencek <span class="badge-pill" id="wish-count">0</span></a>
+    <a href="#" onclick="requireAuth(()=>showPage('affiliate'));return false">🔗 Affiliate</a>
+    <a href="#" onclick="requireAuth(()=>showPage('sell'));return false">+ Eladás</a>
+    <a href="#" onclick="requireAuth(()=>showPage('dashboard'));return false">📊 Dashboard</a>
+    <div id="admin-nav-link" style="display:none">
+      <a href="#" onclick="showPage('admin');return false">🛡️ Admin</a>
+    </div>
+    <button class="nav-btn" onclick="requireAuth(()=>showPage('payout'))">💸 Kifizetés</button>
+    <div style="position:relative">
+      <button class="nav-btn notif-btn" onclick="toggleNotif()" id="notif-trigger">
+        🔔<span class="notif-dot" id="notif-dot" style="display:none"></span>
+      </button>
+      <div class="notif-dropdown" id="notif-dropdown">
+        <div class="notif-header">
+          <span>Értesítések</span>
+          <button style="background:none;border:none;color:var(--s);font-size:.78rem;cursor:pointer" onclick="markAllRead()">Mind olvasott</button>
+        </div>
+        <div id="notif-list"><div style="padding:20px;text-align:center;color:var(--muted);font-size:.85rem">Nincs értesítés</div></div>
+      </div>
+    </div>
+    <!-- FIX #2: Profil gomb mostantól requireAuth-ot használ, nem showPage-t közvetlenül -->
+    <button class="nav-btn" onclick="handleAuthBtn()" id="auth-btn">👤 Bejelentkezés</button>
+    <button class="nav-btn" onclick="showPage('cart')">🛒 <span class="badge-pill" id="cart-count">0</span></button>
+    <button class="nav-btn" onclick="toggleTheme()" id="theme-btn">🌙</button>
+  </div>
+  <button class="hamburger" onclick="toggleMobile()" id="hamburger">
+    <span></span><span></span><span></span>
+  </button>
+</nav>
+
+<div class="mobile-menu" id="mobile-menu">
+  <a href="#" onclick="showPage('home');closeMobile()">🏠 Főoldal</a>
+  <a href="#" onclick="showPage('wishlist');closeMobile()">❤️ Kedvencek</a>
+  <a href="#" onclick="requireAuth(()=>{showPage('affiliate');closeMobile()})">🔗 Affiliate</a>
+  <a href="#" onclick="requireAuth(()=>{showPage('sell');closeMobile()})">💰 Eladás</a>
+  <a href="#" onclick="requireAuth(()=>{showPage('dashboard');closeMobile()})">📊 Dashboard</a>
+  <a href="#" id="mobile-admin-link" style="display:none" onclick="showPage('admin');closeMobile()">🛡️ Admin</a>
+  <a href="#" onclick="requireAuth(()=>{showPage('payout');closeMobile()})">💸 Kifizetés</a>
+  <!-- FIX #2: Mobil fiók gomb is requireAuth-ot használ -->
+  <button onclick="handleAuthBtn();closeMobile()">👤 Fiók</button>
+  <button onclick="showPage('cart');closeMobile()">🛒 Kosár</button>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     HOME
+══════════════════════════════════════════════ -->
+<div id="page-home" class="page active">
+  <div class="hero">
+    <h1>Magyar Digitális<br><span>Termék Piactér</span></h1>
+    <p>Vásárolj és adj el digitális termékeket forintban, magyarul, biztonságosan — közvetítők nélkül.</p>
+    <div class="hero-btns">
+      <button class="btn btn-primary btn-lg" onclick="document.getElementById('products-section').scrollIntoView({behavior:'smooth'})">🔍 Böngészés</button>
+      <button class="btn btn-outline btn-lg" onclick="requireAuth(()=>showPage('sell'))">💰 Adj el te is</button>
+    </div>
+    <div class="stats">
+      <div class="stat"><strong id="stat-products">—</strong><span>Termék</span></div>
+      <div class="stat"><strong id="stat-sellers">—</strong><span>Eladó</span></div>
+      <div class="stat"><strong id="stat-buyers">—</strong><span>Vásárló</span></div>
+      <div class="stat"><strong id="stat-rating">4.8 ⭐</strong><span>Átlag értékelés</span></div>
+    </div>
+  </div>
+  <div class="search-bar">
+    <input type="text" id="search-input" placeholder="Keress termékeket, eladókat, kulcsszavakat..." oninput="onSearchInput()">
+    <button onclick="filterProducts()">Keresés</button>
+  </div>
+  <div class="filter-bar">
+    <select class="filter-select" id="sort-select" onchange="filterProducts()">
+      <option value="default">📊 Rendezés: Alapértelmezett</option>
+      <option value="price-asc">💲 Ár: Alacsony → Magas</option>
+      <option value="price-desc">💲 Ár: Magas → Alacsony</option>
+      <option value="rating">⭐ Legjobb értékelés</option>
+      <option value="sales">🔥 Legtöbb eladás</option>
+      <option value="newest">🆕 Legújabb</option>
+    </select>
+    <select class="filter-select" id="price-filter" onchange="filterProducts()">
+      <option value="all">💰 Összes ár</option>
+      <option value="0-5000">0 – 5 000 Ft</option>
+      <option value="5000-10000">5 000 – 10 000 Ft</option>
+      <option value="10000-99999">10 000 Ft felett</option>
+    </select>
+    <select class="filter-select" id="rating-filter" onchange="filterProducts()">
+      <option value="all">⭐ Összes értékelés</option>
+      <option value="4.5">4.5+</option>
+      <option value="4.0">4.0+</option>
+    </select>
+  </div>
+  <div class="cats" id="cat-bar">
+    <div class="cat active" onclick="filterCat('mind',this)">🌐 Mind</div>
+    <div class="cat" onclick="filterCat('tanfolyam',this)">🎓 Tanfolyamok</div>
+    <div class="cat" onclick="filterCat('ebook',this)">📚 E-bookok</div>
+    <div class="cat" onclick="filterCat('szoftver',this)">💻 Szoftverek</div>
+    <div class="cat" onclick="filterCat('sablon',this)">🎨 Sablonok</div>
+    <div class="cat" onclick="filterCat('grafika',this)">🖼️ Grafikák</div>
+    <div class="cat" onclick="filterCat('audio',this)">🎵 Hangok</div>
+    <div class="cat" onclick="filterCat('foto',this)">📷 Fotók</div>
+  </div>
+  <div class="section" id="products-section">
+    <div class="section-title">🔥 Termékek <span id="product-count" style="color:var(--muted);font-size:.85rem;font-weight:400;margin-left:6px"></span></div>
+    <div class="grid" id="product-grid">
+      <div class="skeleton-card"><div class="skeleton skeleton-thumb"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div>
+      <div class="skeleton-card"><div class="skeleton skeleton-thumb"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div>
+      <div class="skeleton-card"><div class="skeleton skeleton-thumb"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div>
+      <div class="skeleton-card"><div class="skeleton skeleton-thumb"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div>
+    </div>
+  </div>
+  <div style="background:var(--card);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:30px 24px;margin-bottom:20px">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:24px;max-width:900px;margin:0 auto">
+      <div style="text-align:center"><div style="font-size:2rem;margin-bottom:8px">🔒</div><div style="font-weight:700;margin-bottom:4px">Biztonságos fizetés</div><div style="color:var(--muted);font-size:.82rem">Stripe által biztosított</div></div>
+      <div style="text-align:center"><div style="font-size:2rem;margin-bottom:8px">⚡</div><div style="font-weight:700;margin-bottom:4px">Azonnali letöltés</div><div style="color:var(--muted);font-size:.82rem">Fizetés után azonnal hozzáférsz</div></div>
+      <div style="text-align:center"><div style="font-size:2rem;margin-bottom:8px">🇭🇺</div><div style="font-weight:700;margin-bottom:4px">Magyar forint</div><div style="color:var(--muted);font-size:.82rem">Nincs devizaváltás</div></div>
+      <div style="text-align:center"><div style="font-size:2rem;margin-bottom:8px">🛡️</div><div style="font-weight:700;margin-bottom:4px">30 napos garancia</div><div style="color:var(--muted);font-size:.82rem">Pénz-visszafizetés garantált</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PRODUCT DETAIL
+══════════════════════════════════════════════ -->
+<div id="page-detail" class="page">
+  <div class="product-detail">
+    <button class="back-btn" onclick="showPage('home')">← Vissza a böngészéshez</button>
+    <div class="breadcrumb" id="breadcrumb"></div>
+    <div class="detail-grid">
+      <div>
+        <div class="gallery-wrap">
+          <div class="swiper" id="main-swiper">
+            <div class="swiper-wrapper" id="swiper-slides"></div>
+            <div class="swiper-pagination"></div>
+            <div class="swiper-button-next"></div>
+            <div class="swiper-button-prev"></div>
+          </div>
+          <div class="gallery-thumbs" id="gallery-thumbs"></div>
+        </div>
+        <div id="yt-wrap" style="margin-bottom:22px;display:none">
+          <div style="font-size:.85rem;color:var(--muted);margin-bottom:8px">🎬 Előnézet videó</div>
+          <iframe id="yt-iframe" class="yt-embed" src="" allowfullscreen allow="autoplay; encrypted-media"></iframe>
+        </div>
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('overview',this)">Áttekintés</button>
+          <button class="tab-btn" onclick="switchTab('content',this)">Tartalom</button>
+          <button class="tab-btn" onclick="switchTab('reviews',this)">Értékelések</button>
+          <button class="tab-btn" onclick="switchTab('qa',this)">K&amp;V</button>
+        </div>
+        <div class="tab-panel active" id="tab-overview">
+          <h1 class="detail-title" id="detail-title"></h1>
+          <div class="detail-meta" id="detail-meta"></div>
+          <div class="badge-row" id="detail-badges"></div>
+          <div class="detail-desc" id="detail-desc"></div>
+          <div class="detail-tags" id="detail-tags"></div>
+          <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+            <span style="color:var(--muted);font-size:.82rem;align-self:center">Megosztás:</span>
+            <button class="btn btn-outline" style="padding:5px 12px;font-size:.78rem" onclick="shareProduct('facebook')">📘 Facebook</button>
+            <button class="btn btn-outline" style="padding:5px 12px;font-size:.78rem" onclick="shareProduct('twitter')">🐦 Twitter</button>
+            <button class="btn btn-outline" style="padding:5px 12px;font-size:.78rem" onclick="shareProduct('link')">🔗 Link másolása</button>
+          </div>
+          <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-top:10px">
+            <div style="font-weight:700;margin-bottom:12px;font-size:.9rem">👤 Az eladóról</div>
+            <div style="display:flex;align-items:center;gap:12px;cursor:pointer" id="detail-seller-link">
+              <div class="reviewer-avatar" id="detail-seller-avatar">A</div>
+              <div>
+                <div style="font-weight:600;font-size:.9rem" id="detail-seller-name"></div>
+                <div style="color:var(--muted);font-size:.78rem" id="detail-seller-meta"></div>
+              </div>
+              <div style="margin-left:auto;color:var(--muted);font-size:.8rem">Profil →</div>
+            </div>
+          </div>
+        </div>
+        <div class="tab-panel" id="tab-content">
+          <h3 style="margin-bottom:16px;font-size:1rem">📋 Tartalomjegyzék</h3>
+          <div id="content-list"></div>
+        </div>
+        <div class="tab-panel" id="tab-reviews">
+          <div class="review-summary">
+            <div>
+              <div class="big-rating" id="avg-rating">—</div>
+              <small style="color:var(--muted);font-size:.78rem;text-align:center;display:block">/ 5.0</small>
+            </div>
+            <div class="rating-bars" id="rating-bars">
+              <div class="rbar"><span style="width:20px">5⭐</span><div class="rbar-bg"><div class="rbar-fill" id="rbar5" style="width:0%"></div></div><span id="rbar5pct">0%</span></div>
+              <div class="rbar"><span style="width:20px">4⭐</span><div class="rbar-bg"><div class="rbar-fill" id="rbar4" style="width:0%"></div></div><span id="rbar4pct">0%</span></div>
+              <div class="rbar"><span style="width:20px">3⭐</span><div class="rbar-bg"><div class="rbar-fill" id="rbar3" style="width:0%"></div></div><span id="rbar3pct">0%</span></div>
+              <div class="rbar"><span style="width:20px">2⭐</span><div class="rbar-bg"><div class="rbar-fill" id="rbar2" style="width:0%"></div></div><span id="rbar2pct">0%</span></div>
+              <div class="rbar"><span style="width:20px">1⭐</span><div class="rbar-bg"><div class="rbar-fill" id="rbar1" style="width:0%"></div></div><span id="rbar1pct">0%</span></div>
+            </div>
+          </div>
+          <div id="reviews-list"></div>
+          <div class="review-form">
+            <h4>✍️ Írj értékelést</h4>
+            <div class="star-select" id="star-select">
+              <span onclick="setStars(1)">⭐</span><span onclick="setStars(2)">⭐</span><span onclick="setStars(3)">⭐</span><span onclick="setStars(4)">⭐</span><span onclick="setStars(5)">⭐</span>
+            </div>
+            <input type="text" placeholder="Neved" id="review-name">
+            <textarea placeholder="Írd le tapasztalatod..." id="review-text"></textarea>
+            <button class="btn btn-primary btn-full" onclick="submitReview()" id="submit-review-btn">Értékelés küldése</button>
+          </div>
+        </div>
+        <div class="tab-panel" id="tab-qa">
+          <h3 style="margin-bottom:16px;font-size:1rem">❓ Kérdések &amp; Válaszok</h3>
+          <div id="qa-list"></div>
+          <div class="qa-form">
+            <h4 style="margin-bottom:12px;font-size:.9rem">Tedd fel kérdésed</h4>
+            <input type="text" id="qa-name" placeholder="Neved">
+            <textarea id="qa-question" placeholder="Kérdésed..."></textarea>
+            <button class="btn btn-primary" onclick="submitQA()">Kérdés küldése</button>
+          </div>
+        </div>
+        <div style="margin-top:30px">
+          <div class="section-title">📦 Hasonló termékek</div>
+          <div class="grid" id="related-grid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"></div>
+        </div>
+      </div>
+      <!-- BUY BOX -->
+      <div>
+        <div class="buy-box">
+          <div class="buy-price" id="detail-price">0 Ft</div>
+          <div class="buy-price-orig" id="detail-price-orig"></div>
+          <div id="discount-pct-badge" style="display:none;background:var(--danger);color:#fff;padding:3px 10px;border-radius:20px;font-size:.78rem;font-weight:700;margin-bottom:10px;display:inline-block"></div>
+          <div class="afs-box">⚡ <strong>Azonnali hozzáférés</strong> – Fizetés után azonnal letölthető. Élethosszig tartó frissítések.</div>
+          <button class="btn btn-primary btn-full btn-lg" onclick="addToCart(currentProduct)" style="margin:10px 0">🛒 Kosárba</button>
+          <button class="btn btn-success btn-full" onclick="buyNow(currentProduct)">⚡ Azonnali vásárlás</button>
+          <div class="coupon-row">
+            <input type="text" id="coupon-input" placeholder="Kuponkód...">
+            <button class="btn btn-outline" onclick="applyCoupon()">Alkalmaz</button>
+          </div>
+          <div id="coupon-status" style="font-size:.78rem;margin-bottom:8px"></div>
+          <ul class="buy-features" id="buy-features"></ul>
+          <div class="gdpr-note">🔒 Stripe-titkosított fizetés. <a href="#" style="color:var(--s)" onclick="openModal('modal-privacy')">Adatvédelem</a> · <a href="#" style="color:var(--s)" onclick="openModal('modal-tos')">ÁSZF</a></div>
+          <div class="affiliate-box">
+            <h4>🔗 Affiliate link</h4>
+            <p style="color:var(--muted);margin-bottom:10px;font-size:.78rem">Keress <strong style="color:var(--success)" id="aff-commission">20%</strong>-ot minden eladás után!</p>
+            <div class="aff-link">
+              <span id="aff-link-text">Bejelentkezés után elérhető</span>
+              <button onclick="copyAffLink()">Másolás</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SELLER PAGE
+══════════════════════════════════════════════ -->
+<div id="page-seller" class="page">
+  <div class="seller-page">
+    <button class="back-btn" onclick="history.back()">← Vissza</button>
+    <div class="seller-hero">
+      <div class="seller-avatar" id="seller-avatar">A</div>
+      <div style="flex:1">
+        <div style="font-size:1.4rem;font-weight:800" id="seller-name">Eladó neve</div>
+        <div class="verified" id="seller-verified" style="display:none">✓ Hitelesített eladó</div>
+        <div class="seller-bio" id="seller-bio"></div>
+        <div class="seller-stats">
+          <div class="seller-stat"><strong id="s-products">0</strong><span>Termék</span></div>
+          <div class="seller-stat"><strong id="s-sales">0</strong><span>Eladás</span></div>
+          <div class="seller-stat"><strong id="s-rating">—</strong><span>Értékelés</span></div>
+          <div class="seller-stat"><strong id="s-since">—</strong><span>Tag óta</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="section-title">📦 Termékei</div>
+    <div class="grid" id="seller-products-grid"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     WISHLIST
+══════════════════════════════════════════════ -->
+<div id="page-wishlist" class="page">
+  <div class="wishlist-page">
+    <div class="page-title">❤️ Kedvenceim</div>
+    <div class="page-subtitle">Elmentett termékeid</div>
+    <div class="grid" id="wishlist-grid"></div>
+    <div class="empty-state" id="wish-empty" style="display:none">
+      <span class="emoji">💔</span><p>Még nincs kedvenced.</p>
+      <button class="btn btn-primary" onclick="showPage('home')">Böngészés</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     PROFILE
+══════════════════════════════════════════════ -->
+<div id="page-profile" class="page">
+  <div class="profile-page">
+    <div class="page-title">👤 Profilom</div>
+    <div class="profile-hero">
+      <div class="profile-avatar-big" id="profile-avatar-wrap" onclick="document.getElementById('avatar-upload').click()" title="Profilkép megváltoztatása">
+        <span id="profile-avatar-initials">K</span>
+        <img id="profile-avatar-img" src="" style="display:none" alt="Avatar">
+        <div class="avatar-overlay">📷</div>
+        <input type="file" id="avatar-upload" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="uploadAvatar(event)">
+      </div>
+      <div style="flex:1">
+        <div style="font-size:1.2rem;font-weight:700" id="profile-name">—</div>
+        <div style="color:var(--muted);font-size:.85rem" id="profile-email">—</div>
+        <div class="verified" id="profile-verified" style="display:none;margin-top:6px">✓ Hitelesített fiók</div>
+        <div style="margin-top:8px;color:var(--muted);font-size:.8rem" id="profile-role-badge"></div>
+      </div>
+      <button class="btn btn-outline" onclick="openModal('modal-edit-profile')" style="align-self:flex-start">✏️ Szerkesztés</button>
+    </div>
+    <div class="section-title">🧾 Vásárlási előzmények</div>
+    <div id="purchase-history"><p style="color:var(--muted);font-size:.85rem">Töltés...</p></div>
+    <div class="section-title" style="margin-top:24px">📥 Letölthető termékeim</div>
+    <div id="download-history"><p style="color:var(--muted);font-size:.85rem">Töltés...</p></div>
+    <div class="section-title" style="margin-top:24px">🔑 Jelszó módosítása</div>
+    <div class="sell-section">
+      <div class="form-group"><label>Új jelszó</label><input type="password" id="new-password" placeholder="Min. 8 karakter"></div>
+      <div class="form-group"><label>Jelszó megerősítése</label><input type="password" id="confirm-password" placeholder="Jelszó újra"></div>
+      <button class="btn btn-primary" onclick="changePassword()">🔑 Jelszó módosítása</button>
+    </div>
+    <div class="danger-zone">
+      <h4>⚠️ Veszélyzóna</h4>
+      <p style="color:var(--muted);font-size:.83rem;margin-bottom:16px">A fiók törlése visszavonhatatlan. Az összes adatod véglegesen törlődik.</p>
+      <button class="btn btn-danger" onclick="confirmDeleteAccount()">🗑️ Fiók törlése</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CART
+══════════════════════════════════════════════ -->
+<div id="page-cart" class="page">
+  <div class="cart-page">
+    <div class="page-title">🛒 Kosaram</div>
+    <div class="page-subtitle">Ellenőrizd a kiválasztott termékeket</div>
+    <div id="cart-items"></div>
+    <div id="cart-summary-box"></div>
+    <div class="empty-state" id="cart-empty" style="display:none">
+      <span class="emoji">🛒</span><p>A kosár üres.</p>
+      <button class="btn btn-primary" onclick="showPage('home')">Böngészés</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     CHECKOUT
+══════════════════════════════════════════════ -->
+<div id="page-checkout" class="page">
+  <div class="checkout-page">
+    <button class="back-btn" onclick="showPage('cart')">← Vissza a kosárhoz</button>
+    <div class="page-title">💳 Pénztár</div>
+
+    <div class="stripe-info-box">
+      <h4>🔒 Stripe Checkout – Biztonságos fizetés</h4>
+      <p>
+        A fizetést a <strong>Stripe</strong> kezeli – a kártyaadatok sosem jutnak a szerverünkre.
+        A „Fizetés" gombra kattintva átirányítunk a Stripe biztonságos fizetési oldalára.<br><br>
+        <strong>Konfiguráció szükséges:</strong> A <code>STRIPE_PUBLISHABLE_KEY</code> és a
+        <code>create-checkout-session</code> Supabase Edge Function beállítása szükséges éles üzemhez.
+      </p>
+    </div>
+
+    <div class="checkout-box">
+      <h3>👤 Számlázási adatok</h3>
+      <div class="form-row">
+        <div class="form-group"><label>Keresztnév *</label><input type="text" id="co-first" placeholder="János"></div>
+        <div class="form-group"><label>Vezetéknév *</label><input type="text" id="co-last" placeholder="Kovács"></div>
+      </div>
+      <div class="form-group"><label>E-mail *</label><input type="email" id="co-email" placeholder="kovacs.janos@email.hu"></div>
+      <div class="form-group"><label>Ország</label>
+        <select id="co-country">
+          <option>Magyarország</option><option>Románia</option>
+          <option>Szlovákia</option><option>Ausztria</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Irányítószám</label><input type="text" id="co-zip" placeholder="1051"></div>
+        <div class="form-group"><label>Adószám (opcionális)</label><input type="text" id="co-tax" placeholder="12345678-1-41"></div>
+      </div>
+    </div>
+
+    <div class="checkout-box">
+      <h3>💳 Fizetési mód</h3>
+      <div class="payment-provider-badge">
+        <div class="stripe-logo">stripe</div>
+        <p>A fizetést a Stripe PCI-DSS tanúsítvánnyal rendelkező platform kezeli. Bankkártya, Apple Pay, Google Pay támogatott.</p>
+      </div>
+    </div>
+
+    <div class="checkout-box">
+      <h3>📋 Rendelés összesítő</h3>
+      <div id="checkout-summary"></div>
+    </div>
+
+    <div class="checkout-box">
+      <h3>📄 GDPR &amp; Feltételek</h3>
+      <div class="gdpr-check"><input type="checkbox" id="gdpr1"><label for="gdpr1">Elfogadom az <a href="#" onclick="openModal('modal-tos')">ÁSZF-et</a></label></div>
+      <div class="gdpr-check"><input type="checkbox" id="gdpr2"><label for="gdpr2">Elfogadom az <a href="#" onclick="openModal('modal-privacy')">Adatvédelmi irányelveket</a></label></div>
+      <div class="gdpr-check"><input type="checkbox" id="gdpr3"><label for="gdpr3">Hozzájárulok a digitális tartalom azonnali hozzáférhetővé tételéhez (elállási jog lemondása)</label></div>
+      <div class="gdpr-check"><input type="checkbox" id="gdpr4"><label for="gdpr4">Feliratkozom a hírlevélre (opcionális)</label></div>
+      <button class="btn btn-primary btn-full btn-lg" style="margin-top:16px;background:linear-gradient(135deg,#635bff,#8b5cf6)" id="pay-btn" onclick="initiateStripeCheckout()">
+        🔒 Biztonságos fizetés a Stripe-on
+      </button>
+      <div class="secure-badge">🔒 Stripe · PCI-DSS · 256-bit SSL · Bankkártya &amp; ApplePay</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SUCCESS
+══════════════════════════════════════════════ -->
+<div id="page-success" class="page">
+  <div class="success-page">
+    <span class="success-icon">🎉</span>
+    <h1 style="font-size:1.8rem;margin-bottom:10px">Sikeres vásárlás!</h1>
+    <p style="color:var(--muted);margin-bottom:30px">Köszönjük rendelésedet! Visszaigazolót küldtünk e-mailben.</p>
+    <div class="download-card">
+      <h3>📥 Letölthető termékek</h3>
+      <div id="download-list"></div>
+    </div>
+    <p style="color:var(--muted);font-size:.82rem;margin-bottom:20px">A letöltési linkek 7 napig érvényesek.</p>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+      <button class="btn btn-primary btn-lg" onclick="showPage('home')">🏠 Főoldal</button>
+      <button class="btn btn-outline" onclick="requireAuth(()=>showPage('profile'))">📋 Előzmények</button>
+      <button class="btn btn-outline" onclick="requireAuth(()=>showPage('affiliate'))">🔗 Affiliate</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     SELL / DASHBOARD / ADMIN / PAYOUT / AFFILIATE
+     (maradék oldalak változatlanok)
+══════════════════════════════════════════════ -->
+<div id="page-sell" class="page">
+  <div class="sell-page">
+    <div class="page-title">💰 Adj el digitális terméket</div>
+    <div class="page-subtitle">Töltsd fel, szabj árat, keress – teljesen ingyen kezdhetsz</div>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><h4>Töltsd fel</h4><p>Bármilyen digitális fájl: e-book, videó, sablon, szoftver...</p></div>
+      <div class="step"><div class="step-num">2</div><h4>Szabj árat</h4><p>Te döntöd el az árat. Mi 15% jutalékot vonunk le eladásonként.</p></div>
+      <div class="step"><div class="step-num">3</div><h4>Keress</h4><p>Összeg havi rendszerességgel kerül bankszámládra.</p></div>
+    </div>
+    <div class="sell-section">
+      <h3>📦 Termék alapadatok</h3>
+      <label class="sell-form-label">Termék neve *</label>
+      <input class="sell-form-input" type="text" placeholder="pl. Python Mesterképzés 2025" id="sell-name">
+      <label class="sell-form-label">Rövid leírás</label>
+      <input class="sell-form-input" type="text" placeholder="Egysorosban foglald össze..." id="sell-short">
+      <label class="sell-form-label">Részletes leírás *</label>
+      <textarea class="sell-form-input" placeholder="Részletes leírás..." id="sell-desc" style="height:90px;resize:none"></textarea>
+      <label class="sell-form-label">Kategória *</label>
+      <select class="sell-form-input" id="sell-cat">
+        <option value="">Válassz...</option>
+        <option value="tanfolyam">Tanfolyam</option>
+        <option value="ebook">E-Book</option>
+        <option value="szoftver">Szoftver</option>
+        <option value="sablon">Sablon</option>
+        <option value="grafika">Grafika</option>
+        <option value="audio">Hang/Zene</option>
+        <option value="foto">Fotó</option>
+      </select>
+      <label class="sell-form-label">Kulcsszavak (vesszővel)</label>
+      <input class="sell-form-input" type="text" placeholder="python, programozás, AI" id="sell-tags">
+      <label class="sell-form-label">YouTube előnézet URL (opcionális)</label>
+      <input class="sell-form-input" type="text" placeholder="https://youtube.com/watch?v=..." id="sell-yt">
+      <label class="sell-form-label">Emoji ikon</label>
+      <input class="sell-form-input" type="text" placeholder="📦" id="sell-emoji" maxlength="4" value="📦">
+    </div>
+    <div class="sell-section">
+      <h3>📁 Termékfájl feltöltése</h3>
+      <div class="upload-area">
+        <span style="font-size:3rem;display:block;margin-bottom:10px">📁</span>
+        <p><strong>Kattints vagy húzd ide a fájlt</strong></p>
+        <p style="font-size:.78rem;margin-top:6px;color:var(--muted)">Max. 500 MB · ZIP, PDF, MP4, AI, PSD...</p>
+        <input type="file" id="product-file-input" accept=".zip,.pdf,.mp4,.ai,.psd,.docx,.xlsx,.wav,.mp3" onchange="handleFileSelect(event,'file')">
+      </div>
+      <div id="file-upload-status" style="font-size:.82rem;color:var(--muted);margin-top:8px"></div>
+      <h3 style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">🖼️ Borítókép feltöltése</h3>
+      <div class="upload-area">
+        <span style="font-size:2rem">🖼️</span>
+        <p style="font-size:.85rem;margin-top:6px;color:var(--muted)">Borítókép (1280×720 px, max 10 MB)</p>
+        <input type="file" id="cover-file-input" accept="image/jpeg,image/png,image/webp" onchange="handleFileSelect(event,'cover')">
+      </div>
+      <div id="cover-preview-wrap" style="margin-top:8px;display:none">
+        <img id="cover-preview" style="width:80px;height:80px;border-radius:8px;object-fit:cover;border:2px solid var(--border)" src="" alt="Borító előnézet">
+      </div>
+      <div id="cover-upload-status" style="font-size:.82rem;color:var(--muted);margin-top:8px"></div>
+    </div>
+    <div class="sell-section">
+      <h3>💲 Árazás</h3>
+      <label class="sell-form-label">Ár (Ft) * (minimum 500 Ft)</label>
+      <input class="sell-form-input" type="number" placeholder="pl. 9900" id="sell-price" oninput="updatePricePreview()" min="500">
+      <label class="sell-form-label">Akciós ár (opcionális)</label>
+      <input class="sell-form-input" type="number" placeholder="pl. 6900" id="sell-sale-price" oninput="updatePricePreview()">
+      <div class="price-preview">
+        <div class="row"><span>Eladási ár:</span><span id="pp-price">— Ft</span></div>
+        <div class="row"><span>DigiPiac jutalék (15%):</span><span id="pp-fee">— Ft</span></div>
+        <div class="row"><span>ÁFA (27% – benne):</span><span id="pp-vat">— Ft</span></div>
+        <div class="row you"><span>🤑 Te kapsz:</span><span id="pp-you">— Ft</span></div>
+      </div>
+      <label class="sell-form-label">Affiliate jutalék % (0–50%)</label>
+      <input class="sell-form-input" type="number" placeholder="20" value="20" min="0" max="50" id="sell-aff">
+    </div>
+    <button class="btn btn-primary btn-full btn-lg" id="publish-btn" onclick="submitProduct()">🚀 Termék közzététele</button>
+  </div>
+</div>
+
+<div id="page-dashboard" class="page">
+  <div class="dashboard">
+    <div class="page-title">📊 Eladói Dashboard</div>
+    <div class="page-subtitle" id="dash-subtitle">Töltés...</div>
+    <div class="dash-grid">
+      <div class="dash-card"><div class="value" style="color:var(--success)" id="dash-revenue">—</div><div class="label">💰 Összes bevétel</div></div>
+      <div class="dash-card"><div class="value" style="color:var(--s)" id="dash-sales">—</div><div class="label">🛒 Összes eladás</div></div>
+      <div class="dash-card"><div class="value" style="color:var(--warning)" id="dash-rating">—</div><div class="label">⭐ Átlagos értékelés</div></div>
+      <div class="dash-card"><div class="value" style="color:var(--p)" id="dash-products">—</div><div class="label">📦 Aktív termékek</div></div>
+      <div class="dash-card"><div class="value" style="color:var(--success)" id="dash-balance">—</div><div class="label">💵 Kifizetetlen egyenleg</div></div>
+    </div>
+    <div class="chart-wrap"><h3>📈 Bevétel – utolsó 12 hónap</h3><canvas id="revenue-chart"></canvas></div>
+    <div class="table-wrap">
+      <h3>📦 Saját termékeim</h3>
+      <table class="table">
+        <thead><tr><th>Termék</th><th>Ár</th><th>Eladás</th><th>Állapot</th><th>Műveletek</th></tr></thead>
+        <tbody id="my-products-table"><tr><td colspan="5" style="text-align:center;color:var(--muted)">Töltés...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="table-wrap">
+      <h3>🧾 Legutóbbi eladásaim</h3>
+      <table class="table">
+        <thead><tr><th>Termék</th><th>Vásárló</th><th>Dátum</th><th>Összeg</th><th>Állapot</th></tr></thead>
+        <tbody id="my-sales-table"><tr><td colspan="5" style="text-align:center;color:var(--muted)">Töltés...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="page-admin" class="page">
+  <div class="admin-page">
+    <div class="page-title">🛡️ Admin Panel</div>
+    <div class="page-subtitle">Platform kezelése és moderálás</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:24px">
+      <div class="dash-card"><div class="value" style="color:var(--s)" id="admin-stat-sellers">—</div><div class="label">👥 Eladók</div></div>
+      <div class="dash-card"><div class="value" style="color:var(--success)" id="admin-stat-products">—</div><div class="label">📦 Aktív termékek</div></div>
+      <div class="dash-card"><div class="value" style="color:var(--warning)" id="admin-stat-users">—</div><div class="label">🛒 Felhasználók</div></div>
+      <div class="dash-card"><div class="value" style="color:var(--p)" id="admin-stat-pending">—</div><div class="label">⏳ Jóváhagyásra vár</div></div>
+      <div class="dash-card"><div class="value" style="color:var(--danger)" id="admin-stat-reports">—</div><div class="label">🚩 Bejelentések</div></div>
+      <div class="dash-card"><div class="value" style="color:var(--success)" id="admin-stat-revenue">—</div><div class="label">💰 Platform bevétel</div></div>
+    </div>
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="switchAdminTab('pending',this)">⏳ Jóváhagyás</button>
+      <button class="admin-tab" onclick="switchAdminTab('users',this)">👥 Felhasználók</button>
+      <button class="admin-tab" onclick="switchAdminTab('products',this)">📦 Termékek</button>
+      <button class="admin-tab" onclick="switchAdminTab('reports',this)">🚩 Bejelentések</button>
+      <button class="admin-tab" onclick="switchAdminTab('finance',this)">💰 Pénzügyek</button>
+      <button class="admin-tab" onclick="switchAdminTab('tickets',this)">🎫 Ticketek</button>
+    </div>
+    <div class="admin-panel active" id="admin-pending"><div id="admin-pending-list"><p style="color:var(--muted)">Töltés...</p></div></div>
+    <div class="admin-panel" id="admin-users">
+      <div style="margin-bottom:12px;display:flex;gap:8px">
+        <input id="admin-user-search" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 12px;font-size:.85rem;outline:none" placeholder="Felhasználó keresése..." oninput="searchAdminUsers()">
+        <button class="btn btn-primary" onclick="searchAdminUsers()">Keresés</button>
+      </div>
+      <div id="admin-users-list"><p style="color:var(--muted)">Töltés...</p></div>
+    </div>
+    <div class="admin-panel" id="admin-products">
+      <div class="table-wrap" style="border:none;padding:0">
+        <table class="table">
+          <thead><tr><th>Termék</th><th>Eladó</th><th>Ár</th><th>Eladások</th><th>Állapot</th><th>Műveletek</th></tr></thead>
+          <tbody id="admin-products-table"><tr><td colspan="6" style="text-align:center;color:var(--muted)">Töltés...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="admin-panel" id="admin-reports"><div id="admin-reports-list"><p style="color:var(--muted)">Töltés...</p></div></div>
+    <div class="admin-panel" id="admin-finance">
+      <div class="chart-wrap"><h3>💰 Platform bevétel</h3><canvas id="admin-revenue-chart"></canvas></div>
+      <div class="table-wrap" style="border:none;padding:0;margin-top:10px">
+        <table class="table">
+          <thead><tr><th>Eladó</th><th>Forgalom</th><th>Platform jutalék (15%)</th><th>Állapot</th></tr></thead>
+          <tbody id="admin-finance-table"><tr><td colspan="4" style="text-align:center;color:var(--muted)">Töltés...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="admin-panel" id="admin-tickets"><div id="admin-tickets-list"><p style="color:var(--muted)">Töltés...</p></div></div>
+  </div>
+</div>
+
+<div id="page-payout" class="page">
+  <div class="payout-page">
+    <button class="back-btn" onclick="showPage('dashboard')">← Vissza</button>
+    <div class="page-title">💸 Kifizetések</div>
+    <div class="payout-balance">
+      <div class="amount" id="payout-balance-amount">—</div>
+      <div class="label">Elérhető egyenleg</div>
+      <button class="btn" style="background:#fff;color:#000;margin-top:16px;font-weight:700" onclick="requestPayout()">Kifizetés igénylése</button>
+    </div>
+    <div class="table-wrap">
+      <h3>📋 Kifizetési előzmények</h3>
+      <table class="table">
+        <thead><tr><th>Dátum</th><th>Összeg</th><th>Módszer</th><th>Állapot</th></tr></thead>
+        <tbody id="payout-history"><tr><td colspan="4" style="text-align:center;color:var(--muted)">Töltés...</td></tr></tbody>
+      </table>
+    </div>
+    <div class="sell-section" style="margin-top:20px">
+      <h3>🏦 Bankszámla adatok</h3>
+      <div class="form-group"><label>Számlaszám</label><input type="text" id="payout-bank-acc" placeholder="12345678-12345678-12345678"></div>
+      <div class="form-group"><label>Számlabirtokos neve</label><input type="text" id="payout-bank-name" placeholder="Kovács János"></div>
+      <button class="btn btn-primary" onclick="saveBankDetails()">Mentés</button>
+    </div>
+  </div>
+</div>
+
+<div id="page-affiliate" class="page">
+  <div class="aff-page">
+    <div class="page-title">🔗 Affiliate Program</div>
+    <div class="page-subtitle">Ossz meg termékeket és keress minden eladás után!</div>
+    <div class="aff-stats">
+      <div class="aff-stat-card"><div class="val" style="color:var(--success)" id="aff-total-earn">—</div><div>💰 Összes kereset</div></div>
+      <div class="aff-stat-card"><div class="val" style="color:var(--s)" id="aff-clicks">—</div><div>🔗 Kattintások</div></div>
+      <div class="aff-stat-card"><div class="val" style="color:var(--warning)" id="aff-conversions">—</div><div>🛒 Konverziók</div></div>
+      <div class="aff-stat-card"><div class="val" style="color:var(--p)" id="aff-rate">—</div><div>📈 Konverzióarány</div></div>
+    </div>
+    <div class="chart-wrap"><h3>📈 Affiliate bevétel (utolsó 30 nap)</h3><canvas id="aff-chart"></canvas></div>
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:20px">
+      <div style="font-weight:700;margin-bottom:14px">🔗 Egyedi linked</div>
+      <div class="aff-link" style="font-size:.85rem;padding:12px 14px">
+        <span id="aff-main-link">—</span>
+        <button onclick="copyMainAffLink()">Másolás</button>
+      </div>
+      <p style="color:var(--muted);font-size:.8rem;margin-top:10px">Minden eladás után <strong style="color:var(--success)">20%</strong> jutalék. Kifizetés hónap végén min. 5 000 Ft felett.</p>
+    </div>
+    <div class="table-wrap">
+      <h3>📊 Legutóbbi konverziók</h3>
+      <table class="table">
+        <thead><tr><th>Termék</th><th>Dátum</th><th>Ár</th><th>Jutalék</th><th>Állapot</th></tr></thead>
+        <tbody id="aff-conversions-table"><tr><td colspan="5" style="text-align:center;color:var(--muted)">Töltés...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div id="page-contact" class="page">
+  <div class="contact-page">
+    <div class="page-title">📞 Kapcsolat &amp; Ügyfélszolgálat</div>
+    <div class="page-subtitle">Segítünk! Küldj üzenetet és 24 órán belül válaszolunk.</div>
+    <div class="sell-section">
+      <h3>✉️ Új ticket nyitása</h3>
+      <div class="form-group"><label>E-mail</label><input type="email" id="ticket-email" placeholder="kovacs.janos@email.hu"></div>
+      <div class="form-group"><label>Tárgy</label><input type="text" id="ticket-subject" placeholder="pl. Letöltési probléma"></div>
+      <div class="form-group"><label>Kategória</label>
+        <select id="ticket-cat">
+          <option>Letöltési probléma</option><option>Fizetési probléma</option>
+          <option>Visszatérítés kérelem</option><option>Technikai hiba</option><option>Egyéb</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Üzenet</label><textarea id="ticket-msg" placeholder="Írj részletesen..." style="height:100px;resize:none"></textarea></div>
+      <button class="btn btn-primary" id="ticket-submit-btn" onclick="submitContactForm()">Küldés</button>
+    </div>
+    <div class="section-title" style="margin-top:24px">📋 Korábbi ticketjeid</div>
+    <div id="my-tickets-list"><p style="color:var(--muted);font-size:.85rem">Bejelentkezés után látod ticketjeidet.</p></div>
+  </div>
+</div>
+
+<div id="page-impresszum" class="page">
+  <div class="legal-page">
+    <button class="back-btn" onclick="showPage('home')">← Vissza</button>
+    <div class="page-title">📋 Impresszum</div>
+    <div class="legal-section"><h3>🏢 Cégadatok</h3><p><strong>Cégnév:</strong> DigiPiac Kft.</p><p><strong>Székhely:</strong> 1051 Budapest, Október 6. u. 12.</p><p><strong>Adószám:</strong> 12345678-2-41</p><p><strong>Cégjegyzékszám:</strong> 01-09-123456</p></div>
+    <div class="legal-section"><h3>👤 Kapcsolattartó</h3><p><strong>Ügyvezető:</strong> Kovács János</p><p><strong>E-mail:</strong> <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="caa3a4aca58aaea3ada3baa3aba9e4a2bf">[email&#160;protected]</a></p><p><strong>Telefon:</strong> +36 1 234 5678</p></div>
+    <div class="legal-section"><h3>🌐 Tárhelyszolgáltató</h3><p><strong>Név:</strong> Vercel Inc.</p><p><strong>Székhely:</strong> 340 Pine Street, San Francisco, CA 94104, USA</p></div>
+    <div class="legal-section"><h3>⚖️ Felügyeleti hatóság</h3><p>Nemzeti Fogyasztóvédelmi Hatóság · NAIH</p></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     MODALS
+══════════════════════════════════════════════ -->
+<div class="modal" id="modal-auth">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-auth')">✕</button>
+    <div class="auth-tabs">
+      <button class="auth-tab active" onclick="switchAuthTab('login',this)">Bejelentkezés</button>
+      <button class="auth-tab" onclick="switchAuthTab('register',this)">Regisztráció</button>
+    </div>
+    <div id="auth-login" class="auth-form">
+      <input type="email" placeholder="E-mail cím" id="login-email" autocomplete="email">
+      <input type="password" placeholder="Jelszó" id="login-password" autocomplete="current-password">
+      <button class="btn btn-primary btn-full" id="login-btn" onclick="doLogin()">Bejelentkezés</button>
+      <div style="text-align:center;margin:10px 0;color:var(--muted);font-size:.8rem">— vagy —</div>
+      <div class="social-auth">
+        <button onclick="doSocialLogin('google')">🔴 Google</button>
+        <button onclick="doSocialLogin('facebook')">📘 Facebook</button>
+      </div>
+      <div style="text-align:center;margin-top:12px">
+        <a href="#" style="color:var(--s);font-size:.8rem" onclick="doForgotPassword()">Elfelejtett jelszó?</a>
+      </div>
+    </div>
+    <div id="auth-register" class="auth-form" style="display:none">
+      <input type="text" placeholder="Teljes név" id="reg-name" autocomplete="name">
+      <input type="email" placeholder="E-mail cím" id="reg-email" autocomplete="email">
+      <input type="password" placeholder="Jelszó (min. 8 karakter)" id="reg-password" autocomplete="new-password">
+      <input type="password" placeholder="Jelszó megerősítése" id="reg-password2" autocomplete="new-password">
+      <div class="gdpr-check">
+        <input type="checkbox" id="reg-tos">
+        <label for="reg-tos">Elfogadom az <a href="#" onclick="openModal('modal-tos')">ÁSZF-et</a> és az <a href="#" onclick="openModal('modal-privacy')">Adatvédelmi irányelveket</a></label>
+      </div>
+      <button class="btn btn-primary btn-full" id="register-btn" onclick="doRegister()">Regisztráció</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal-edit-profile">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-edit-profile')">✕</button>
+    <h3>✏️ Profil szerkesztése</h3>
+    <div class="form-group"><label>Teljes név</label><input type="text" id="modal-fullname"></div>
+    <div class="form-group"><label>Bemutatkozó szöveg</label>
+      <textarea id="modal-bio" style="height:80px;resize:none;width:100%;background:#0f0f1a;border:1px solid var(--border);color:var(--text);border-radius:10px;padding:10px 14px;font-size:.9rem;outline:none;font-family:inherit"></textarea>
+    </div>
+    <div class="form-group"><label>Bankszámlaszám</label><input type="text" id="modal-bank-acc"></div>
+    <div class="form-group"><label>Banknév</label><input type="text" id="modal-bank-name"></div>
+    <button class="btn btn-primary btn-full" onclick="saveProfileModal()">💾 Mentés</button>
+  </div>
+</div>
+
+<div class="modal" id="modal-tos">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-tos')">✕</button>
+    <h3>📄 Általános Szerződési Feltételek</h3>
+    <div class="legal-content">
+      <h4>1. Bevezető</h4><p>A DigiPiac platform magyar digitális termékek adásvételét elősegítő piactér.</p>
+      <h4>2. Regisztráció</h4><p>A Platform használatához regisztráció szükséges. Valós adatok megadása kötelező.</p>
+      <h4>3. Vásárlási feltételek</h4><p>A digitális termékek megvásárlásakor a vásárló hozzájárul a tartalom azonnali hozzáférhetővé tételéhez, ezzel elállási jogáról lemond a 45/2014. (II. 26.) Korm. rendelet alapján.</p>
+      <h4>4. Fizetés</h4><p>A fizetést a Stripe Inc. kezeli. A Platform nem tárolja a bankkártya-adatokat.</p>
+      <h4>5. Eladói feltételek</h4><p>Az eladó szavatolja, hogy a feltöltött tartalom szerzői jogilag az ő tulajdona. A Platform 15% jutalékot von le minden eladás után.</p>
+      <h4>6. Garancia</h4><p>30 napos pénzvisszafizetési garancia, ha a termék nem felel meg a leírásnak.</p>
+      <h4>7. Irányadó jog</h4><p>Magyar jog irányadó. Jogvita esetén Budapest Környéki Törvényszék illetékes.</p>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal-privacy">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-privacy')">✕</button>
+    <h3>🔒 Adatvédelmi Irányelvek</h3>
+    <div class="legal-content">
+      <h4>Adatkezelő</h4><p>DigiPiac Kft. · 1051 Budapest, Október 6. u. 12.</p>
+      <h4>Kezelt adatok</h4><p>Név, e-mail cím, számlázási cím, vásárlási előzmények, letöltési naplók.</p>
+      <h4>Fizetési adatok</h4><p>Bankkártya-adatokat nem tárolunk. A fizetést a Stripe Inc. kezeli saját adatvédelmi irányvonalai szerint.</p>
+      <h4>Az adatkezelés célja</h4><p>Rendelések teljesítése, számla kiállítása, ügyfélszolgálat, jogszabályi kötelezettségek.</p>
+      <h4>Adatmegőrzés</h4><p>Számlázási adatok: 8 év. Felhasználói adatok: fiók törlésétől számított 30 nap.</p>
+      <h4>Jogaid</h4><p>Hozzáférés, helyesbítés, törlés, adathordozhatóság. Panasz: NAIH.</p>
+      <h4>Kapcsolat</h4><p><a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="1273767366647776777e777f52767b757b627b73713c7a67">[email&#160;protected]</a></p>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modal-cookie-settings">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-cookie-settings')">✕</button>
+    <h3>🍪 Sütibeállítások</h3>
+    <div style="margin-top:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div><div style="font-weight:600;font-size:.9rem">Szükséges sütik</div><div style="color:var(--muted);font-size:.78rem">A weboldal működéséhez elengedhetetlen</div></div>
+        <div style="background:var(--success);color:#fff;padding:4px 12px;border-radius:20px;font-size:.75rem;font-weight:600">Mindig aktív</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border)">
+        <div><div style="font-weight:600;font-size:.9rem">Analitikai sütik</div><div style="color:var(--muted);font-size:.78rem">Látogatottsági statisztikák</div></div>
+        <input type="checkbox" id="analytics-cookie" checked style="width:20px;height:20px;accent-color:var(--p)">
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 0">
+        <div><div style="font-weight:600;font-size:.9rem">Marketing sütik</div><div style="color:var(--muted);font-size:.78rem">Személyre szabott hirdetések</div></div>
+        <input type="checkbox" id="marketing-cookie" style="width:20px;height:20px;accent-color:var(--p)">
+      </div>
+    </div>
+    <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="saveCookieSettings()">Mentés</button>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <div class="lightbox-inner" onclick="event.stopPropagation()">
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    <div id="lightbox-content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"><span id="toast-icon">✅</span><span id="toast-msg">Sikeres!</span></div>
+
+<div class="cookie-banner" id="cookie-banner" style="display:none">
+  <p>🍪 Sütiket használunk a jobb felhasználói élmény érdekében. <a href="#" onclick="openModal('modal-privacy')">Adatvédelem</a> · <a href="#" onclick="openModal('modal-cookie-settings')">Beállítások</a></p>
+  <div class="cookie-btns">
+    <button class="btn btn-outline" onclick="openModal('modal-cookie-settings')">Beállítások</button>
+    <button class="btn btn-primary" onclick="acceptCookies()">Elfogadom</button>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-grid">
+    <div class="footer-col">
+      <div class="footer-logo">🛍️ DigiPiac</div>
+      <div class="footer-tagline">Magyar digitális termékek piactere.</div>
+      <div class="social-links">
+        <a href="#" title="Facebook">📘</a>
+        <a href="#" title="Instagram">📷</a>
+        <a href="#" title="YouTube">📺</a>
+      </div>
+    </div>
+    <div class="footer-col">
+      <h4>Piactér</h4>
+      <a href="#" onclick="filterCat('tanfolyam',null)">Tanfolyamok</a>
+      <a href="#" onclick="filterCat('ebook',null)">E-Bookok</a>
+      <a href="#" onclick="filterCat('szoftver',null)">Szoftverek</a>
+      <a href="#" onclick="filterCat('sablon',null)">Sablonok</a>
+    </div>
+    <div class="footer-col">
+      <h4>Eladóknak</h4>
+      <a href="#" onclick="requireAuth(()=>showPage('sell'))">Kezdés</a>
+      <a href="#" onclick="requireAuth(()=>showPage('dashboard'))">Dashboard</a>
+      <a href="#" onclick="requireAuth(()=>showPage('payout'))">Kifizetések</a>
+      <a href="#" onclick="requireAuth(()=>showPage('affiliate'))">Affiliate</a>
+    </div>
+    <div class="footer-col">
+      <h4>Segítség</h4>
+      <a href="#" onclick="showPage('contact')">Kapcsolat</a>
+      <a href="#" onclick="showPage('impresszum')">Impresszum</a>
+      <a href="#" onclick="openModal('modal-tos')">ÁSZF</a>
+      <a href="#" onclick="openModal('modal-privacy')">Adatvédelem</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    © 2025 DigiPiac Kft. · Minden jog fenntartva · 1051 Budapest<br>
+    <a href="#" onclick="openModal('modal-tos')">ÁSZF</a> · <a href="#" onclick="openModal('modal-privacy')">Adatvédelem</a> · <a href="#" onclick="showPage('impresszum')">Impresszum</a> · <a href="#" onclick="showPage('contact')">Kapcsolat</a><br>
+    <span style="margin-top:6px;display:block">💳 Fizetési szolgáltató: <strong style="color:#635bff">Stripe</strong></span>
+  </div>
+</footer>
+
+<!-- ══════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════
+   §1  CONFIG
+   ──────────────────────────────────────────
+   Éles üzemhez cseréld le az alábbi értékeket:
+     • STRIPE_PUBLISHABLE_KEY → Stripe Dashboard > Developers > API keys
+     • SUPABASE_URL / SUPABASE_ANON_KEY → Supabase project settings
+   Edge Function URL-je automatikusan a helyes formátumra épül (#9 javítás)
+════════════════════════════════════════════ */
+const SUPABASE_URL      = 'https://kqugolmndqonbnjetdyi.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxdWdvbG1uZHFvbmJuamV0ZHlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2OTM3NjMsImV4cCI6MjA4ODI2OTc2M30.wGEBEJDPUKsUPu9W5vxvH7Do0wX9U3FdgKzEzny_zBg';
+
+/* ── FIX #5 & #9 ──
+   STRIPE_PUBLISHABLE_KEY: cseréld le a saját Stripe pk_live_... kulcsodra.
+   CHECKOUT_EDGE_FUNCTION: a project-ref-et automatikusan a SUPABASE_URL-ből
+   vonjuk ki, így mindig helyes a végső URL.
+   Pl.: https://kqugolmndqonbnjetdyi.supabase.co/functions/v1/create-checkout-session
+*/
+const STRIPE_PUBLISHABLE_KEY = 'pk_test_51T7IaDKmsMGO0we9XFymkUXh5lUkiPU1fC1VCKx6WRMPoaaVwDlmx2n1qGAjHRxuTFJ7s1goxuUXRmQcsnNgBTFi00QqFefU9r';
+
+// FIX #9: Helyes Edge Function URL – a project-ref a SUPABASE_URL-ből jön
+const SUPABASE_PROJECT_REF = SUPABASE_URL.match(/https:\/\/([^.]+)\.supabase\.co/)?.[1] || '';
+const CHECKOUT_EDGE_FUNCTION =
+  `https://${SUPABASE_PROJECT_REF}.supabase.co/functions/v1/create-checkout-session`;
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* FIX #8: Stripe inicializálása egyszer, biztonságosan.
+   Csak akkor futtatjuk, ha a kulcs már le van cserélve (nem tartalmaz REPLACE). */
+let stripeInstance = null;
+function getStripe() {
+  if (!stripeInstance && !STRIPE_PUBLISHABLE_KEY.includes('REPLACE')) {
+    stripeInstance = Stripe(STRIPE_PUBLISHABLE_KEY);
+  }
+  return stripeInstance;
+}
+
+/* ════════════════════════════════════════════
+   §2  GLOBAL STATE
+════════════════════════════════════════════ */
+let cart              = [];
+let wishlistIds       = new Set();
+let currentProduct    = null;
+let currentUser       = null;
+let currentProfile    = null;
+let allProducts       = [];
+let activeCategory    = 'mind';
+let couponApplied     = null;
+let selectedStars     = 0;
+let notifOpen         = false;
+let pendingFileUpload = null;
+let pendingCoverFile  = null;
+let chartsInited      = false;
+let affChartInited    = false;
+let adminChartInited  = false;
+let mainSwiper        = null;
+let authReady         = false;
+
+/* ════════════════════════════════════════════
+   §3  SECURITY: XSS escape helper
+════════════════════════════════════════════ */
+function esc(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ════════════════════════════════════════════
+   §4  SECURITY: Cart item validator
+   ──────────────────────────────────────────
+   FIX #4: UUID_REGEX egyetlen helyen van definiálva (globálisan).
+   A korábbi kódban belső isValidUUID() függvényen belül is meg volt adva,
+   ami duplikált definíciót okozott. Most csak itt szerepel.
+════════════════════════════════════════════ */
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isValidUUID(str) {
+  return UUID_REGEX.test(String(str || ''));
+}
+
+function sanitizeCartItem(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (!isValidUUID(raw.id))                             return null;
+  if (typeof raw.name !== 'string' || !raw.name.trim()) return null;
+  if (typeof raw.price !== 'number' || !Number.isFinite(raw.price)) return null;
+  if (raw.price < 500 || raw.price > 10_000_000)        return null;
+  if (raw.seller_id && !isValidUUID(raw.seller_id))      return null;
+  return {
+    id:          raw.id,
+    name:        String(raw.name).trim().slice(0, 200),
+    price:       Math.round(raw.price),
+    emoji:       /^\p{Emoji}/u.test(String(raw.emoji || '')) ? String(raw.emoji).slice(0, 4) : '📦',
+    seller_id:   isValidUUID(raw.seller_id) ? raw.seller_id : '',
+    seller_name: String(raw.seller_name || '').trim().slice(0, 100)
+  };
+}
+
+/* ════════════════════════════════════════════
+   §5  LOOKUP MAPS
+════════════════════════════════════════════ */
+const CAT_MAP = {
+  tanfolyam:'🎓 Tanfolyam', ebook:'📚 E-Book', szoftver:'💻 Szoftver',
+  sablon:'🎨 Sablon', grafika:'🖼️ Grafika', audio:'🎵 Hang', foto:'📷 Fotó'
+};
+const CAT_MAP_PLURAL = {
+  tanfolyam:'🎓 Tanfolyamok', ebook:'📚 E-Bookok', szoftver:'💻 Szoftverek',
+  sablon:'🎨 Sablonok', grafika:'🖼️ Grafikák', audio:'🎵 Hangok', foto:'📷 Fotók'
+};
+const STATUS_MAP = {
+  active:'Aktív', pending:'Jóváhagyás alatt', rejected:'Elutasítva', banned:'Tiltva'
+};
+const PAYMENT_STATUS_MAP = {
+  paid:'Fizetve', pending:'Feldolgozás', failed:'Sikertelen', refunded:'Visszatérítve'
+};
+
+/* ════════════════════════════════════════════
+   §6  NAVIGATION
+════════════════════════════════════════════ */
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const pg = document.getElementById('page-' + id);
+  if (pg) pg.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  closeMobile();
+  const loaders = {
+    cart:      renderCart,
+    wishlist:  renderWishlist,
+    checkout:  renderCheckoutSummary,
+    dashboard: loadDashboard,
+    affiliate: loadAffiliate,
+    admin:     loadAdmin,
+    profile:   renderProfile,
+    payout:    loadPayout,
+    contact:   loadMyTickets
+  };
+  if (loaders[id]) loaders[id]();
+}
+
+function toggleTheme() {
+  const html  = document.documentElement;
+  const light = html.getAttribute('data-theme') === 'light';
+  html.setAttribute('data-theme', light ? 'dark' : 'light');
+  document.getElementById('theme-btn').textContent = light ? '🌙' : '☀️';
+}
+function toggleMobile() { document.getElementById('mobile-menu').classList.toggle('open'); }
+function closeMobile()  { document.getElementById('mobile-menu').classList.remove('open'); }
+
+window.addEventListener('scroll', () => {
+  const scrollable = document.body.scrollHeight - window.innerHeight;
+  const pct = scrollable > 0 ? Math.min(100, (window.scrollY / scrollable) * 100) : 0;
+  const bar = document.getElementById('page-progress');
+  if (bar) bar.style.width = pct + '%';
+  document.getElementById('back-top')?.classList.toggle('show', window.scrollY > 400);
+});
+
+/* ════════════════════════════════════════════
+   §7  AUTH
+════════════════════════════════════════════ */
+sb.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    currentUser = session.user;
+    await loadProfile();
+    updateNavForUser();
+    loadCartFromStorage();
+    await loadWishlist();
+    await loadNotifications();
+    chartsInited = affChartInited = adminChartInited = false;
+    sb.channel('notifs_' + session.user.id)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public',
+        table: 'notifications',
+        filter: 'user_id=eq.' + session.user.id
+      }, payload => {
+        showToast('🔔 ' + payload.new.message, 'info');
+        loadNotifications();
+      })
+      .subscribe();
+  } else {
+    currentUser = currentProfile = null;
+    updateNavForGuest();
+    cart = []; wishlistIds = new Set();
+  }
+  authReady = true;
+  updateCounts();
+});
+
+/* ════════════════════════════════════════════
+   §8  AUTH HELPERS
+════════════════════════════════════════════ */
+function requireAuth(cb) {
+  if (currentUser) {
+    if (typeof cb === 'function') cb();
+  } else {
+    openModal('modal-auth');
+  }
+}
+
+/* FIX #2: handleAuthBtn – bejelentkezett állapotban a profil oldalt nyitja
+   requireAuth-on keresztül (nem showPage-t hív közvetlenül).
+   Nem bejelentkezett esetén a login modalt nyitja. */
+function handleAuthBtn() {
+  if (currentUser) {
+    requireAuth(() => showPage('profile'));
+  } else {
+    openModal('modal-auth');
+  }
+}
+
+function updateNavForUser() {
+  const btn = document.getElementById('auth-btn');
+  if (!btn) return;
+  const name = currentProfile?.full_name || currentUser?.email?.split('@')[0] || 'Profil';
+  btn.textContent = '👤 ' + name;
+
+  const isAdmin = currentProfile?.role === 'admin';
+  const adminLink = document.getElementById('admin-nav-link');
+  const mobileAdminLink = document.getElementById('mobile-admin-link');
+  if (adminLink)       adminLink.style.display       = isAdmin ? 'block' : 'none';
+  if (mobileAdminLink) mobileAdminLink.style.display  = isAdmin ? 'block' : 'none';
+}
+
+function updateNavForGuest() {
+  const btn = document.getElementById('auth-btn');
+  if (btn) btn.textContent = '👤 Bejelentkezés';
+  const adminLink = document.getElementById('admin-nav-link');
+  const mobileAdminLink = document.getElementById('mobile-admin-link');
+  if (adminLink)       adminLink.style.display       = 'none';
+  if (mobileAdminLink) mobileAdminLink.style.display  = 'none';
+}
+
+async function loadProfile() {
+  if (!currentUser) return;
+  try {
+    const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+    if (data) currentProfile = data;
+  } catch (e) { console.warn('loadProfile:', e); }
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-password').value;
+  if (!email || !pass) { showToast('Töltsd ki az összes mezőt!', 'error'); return; }
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Bejelentkezés...';
+  const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+  btn.disabled = false; btn.textContent = 'Bejelentkezés';
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  closeModal('modal-auth');
+  showToast('✅ Sikeres bejelentkezés!');
+}
+
+async function doRegister() {
+  const name  = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass  = document.getElementById('reg-password').value;
+  const pass2 = document.getElementById('reg-password2').value;
+  const tos   = document.getElementById('reg-tos').checked;
+  if (!name || !email || !pass || !pass2) { showToast('Töltsd ki az összes mezőt!', 'error'); return; }
+  if (pass !== pass2)   { showToast('A jelszavak nem egyeznek!', 'error'); return; }
+  if (pass.length < 8)  { showToast('A jelszó legalább 8 karakter legyen!', 'error'); return; }
+  if (!tos)             { showToast('Fogadd el az ÁSZF-et!', 'error'); return; }
+  const btn = document.getElementById('register-btn');
+  btn.disabled = true; btn.textContent = 'Regisztráció...';
+  const { data, error } = await sb.auth.signUp({
+    email, password: pass,
+    options: { data: { full_name: name } }
+  });
+  btn.disabled = false; btn.textContent = 'Regisztráció';
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  if (data.user) {
+    await sb.from('profiles').upsert({
+      id: data.user.id, full_name: name, email,
+      role: 'user', balance: 0, affiliate_code: genCode()
+    });
+  }
+  closeModal('modal-auth');
+  showToast('✅ Sikeres regisztráció! Erősítsd meg e-mailben.');
+}
+
+function genCode() {
+  return Math.random().toString(36).substring(2, 10).toUpperCase();
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email) { showToast('Add meg az e-mail címed!', 'error'); return; }
+  await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
+  showToast('📧 Jelszó-visszaállító e-mail elküldve!');
+}
+
+async function doSocialLogin(provider) {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider,
+    options: { redirectTo: window.location.origin }
+  });
+  if (error) showToast('Hiba: ' + error.message, 'error');
+}
+
+function switchAuthTab(tab, btn) {
+  document.getElementById('auth-login').style.display    = tab === 'login'    ? 'block' : 'none';
+  document.getElementById('auth-register').style.display = tab === 'register' ? 'block' : 'none';
+  document.querySelectorAll('.auth-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+async function doLogout() {
+  await sb.auth.signOut();
+  showToast('👋 Kijelentkeztél.');
+  showPage('home');
+}
+
+/* ════════════════════════════════════════════
+   §9  PROFILE PAGE
+════════════════════════════════════════════ */
+function renderProfile() {
+  if (!currentUser || !currentProfile) {
+    showToast('Bejelentkezés szükséges!', 'error');
+    openModal('modal-auth');
+    return;
+  }
+  const initials = (currentProfile.full_name || 'K').charAt(0).toUpperCase();
+  document.getElementById('profile-avatar-initials').textContent = initials;
+  document.getElementById('profile-name').textContent  = currentProfile.full_name || '—';
+  document.getElementById('profile-email').textContent = currentUser.email || '—';
+  const roleMap = { admin: '🛡️ Admin', seller: '🏪 Eladó', user: '🛒 Vásárló' };
+  document.getElementById('profile-role-badge').textContent = roleMap[currentProfile.role] || '';
+  if (currentProfile.avatar_url) {
+    const img = document.getElementById('profile-avatar-img');
+    img.src = currentProfile.avatar_url;
+    img.style.display = 'block';
+  }
+  document.getElementById('modal-fullname').value   = currentProfile.full_name || '';
+  document.getElementById('modal-bio').value        = currentProfile.bio || '';
+  document.getElementById('modal-bank-acc').value   = currentProfile.bank_account || '';
+  document.getElementById('modal-bank-name').value  = currentProfile.bank_name || '';
+  loadPurchaseHistory();
+}
+
+async function loadPurchaseHistory() {
+  if (!currentUser) return;
+  try {
+    const { data } = await sb.from('orders')
+      .select('*, products(name, emoji)')
+      .eq('buyer_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    const wrap = document.getElementById('purchase-history');
+    if (!data || !data.length) {
+      wrap.innerHTML = '<p style="color:var(--muted);font-size:.85rem">Még nincs vásárlásod.</p>';
+      return;
+    }
+    wrap.innerHTML = data.map(o => `
+      <div class="purchase-item">
+        <div class="purchase-thumb">${esc(o.products?.emoji || '📦')}</div>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:.9rem">${esc(o.products?.name || 'Termék')}</div>
+          <div style="color:var(--muted);font-size:.78rem">${new Date(o.created_at).toLocaleDateString('hu-HU')}</div>
+        </div>
+        <div style="color:var(--s);font-weight:700">${Number(o.amount).toLocaleString('hu-HU')} Ft</div>
+      </div>`).join('');
+  } catch (e) { console.warn('loadPurchaseHistory:', e); }
+}
+
+async function saveProfileModal() {
+  if (!currentUser) return;
+  const fullName = document.getElementById('modal-fullname').value.trim();
+  const bio      = document.getElementById('modal-bio').value.trim();
+  const bankAcc  = document.getElementById('modal-bank-acc').value.trim();
+  const bankName = document.getElementById('modal-bank-name').value.trim();
+  const { error } = await sb.from('profiles').update({
+    full_name: fullName, bio, bank_account: bankAcc, bank_name: bankName
+  }).eq('id', currentUser.id);
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  await loadProfile();
+  updateNavForUser();
+  closeModal('modal-edit-profile');
+  showToast('✅ Profil mentve!');
+}
+
+async function changePassword() {
+  const np = document.getElementById('new-password').value;
+  const cp = document.getElementById('confirm-password').value;
+  if (!np || !cp)    { showToast('Töltsd ki a jelszó mezőket!', 'error'); return; }
+  if (np !== cp)     { showToast('A jelszavak nem egyeznek!', 'error'); return; }
+  if (np.length < 8) { showToast('Legalább 8 karakter szükséges!', 'error'); return; }
+  const { error } = await sb.auth.updateUser({ password: np });
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  showToast('✅ Jelszó megváltoztatva!');
+  document.getElementById('new-password').value     = '';
+  document.getElementById('confirm-password').value = '';
+}
+
+async function uploadAvatar(event) {
+  const file = event.target.files[0];
+  if (!file || !currentUser) return;
+  if (file.size > 5 * 1024 * 1024) { showToast('Max. 5 MB!', 'error'); return; }
+  const ext  = file.name.split('.').pop().toLowerCase();
+  const path = `avatars/${currentUser.id}.${ext}`;
+  const { error: upErr } = await sb.storage.from('avatars').upload(path, file, { upsert: true });
+  if (upErr) { showToast('Feltöltési hiba: ' + upErr.message, 'error'); return; }
+  const { data: { publicUrl } } = sb.storage.from('avatars').getPublicUrl(path);
+  await sb.from('profiles').update({ avatar_url: publicUrl }).eq('id', currentUser.id);
+  const img = document.getElementById('profile-avatar-img');
+  img.src = publicUrl; img.style.display = 'block';
+  showToast('✅ Profilkép feltöltve!');
+}
+
+function confirmDeleteAccount() {
+  if (confirm('Biztosan törölni szeretnéd a fiókodat? Ez visszavonhatatlan!')) {
+    sb.auth.admin?.deleteUser(currentUser.id)
+      .then(() => { doLogout(); showToast('Fiók törölve.'); })
+      .catch(() => showToast('A törléshez lépj kapcsolatba az ügyfélszolgálattal.', 'info'));
+  }
+}
+
+/* ════════════════════════════════════════════
+   §10  PRODUCTS
+════════════════════════════════════════════ */
+async function loadProducts() {
+  try {
+    const { data, error } = await sb.from('products')
+      .select('*, profiles(full_name, avatar_url, verified)')
+      .eq('status', 'active')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    allProducts = data || [];
+    updateStats();
+    filterProducts();
+  } catch (e) {
+    const msg = e?.message || e?.error_description || JSON.stringify(e) || 'Ismeretlen hiba';
+    console.warn('loadProducts hiba:', msg, e);
+    document.getElementById('product-grid').innerHTML =
+      '<p style="color:var(--muted);grid-column:1/-1;text-align:center;padding:40px">Nem sikerült betölteni a termékeket.<br><small>' + msg + '</small></p>';
+  }
+}
+
+function updateStats() {
+  const sellers = new Set(allProducts.map(p => p.seller_id)).size;
+  document.getElementById('stat-products').textContent = allProducts.length;
+  document.getElementById('stat-sellers').textContent  = sellers;
+  document.getElementById('stat-buyers').textContent   = Math.floor(allProducts.length * 2.3);
+}
+
+function filterCat(cat, el) {
+  activeCategory = cat;
+  document.querySelectorAll('.cat').forEach(c => c.classList.remove('active'));
+  if (el) el.classList.add('active');
+  filterProducts();
+  if (cat !== 'mind') showPage('home');
+}
+
+function onSearchInput() {
+  clearTimeout(window._searchTimer);
+  window._searchTimer = setTimeout(filterProducts, 300);
+}
+
+function filterProducts() {
+  const query       = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+  const sort        = document.getElementById('sort-select')?.value  || 'default';
+  const priceFilter = document.getElementById('price-filter')?.value || 'all';
+  const ratingMin   = parseFloat(document.getElementById('rating-filter')?.value) || 0;
+
+  let list = allProducts.filter(p => {
+    if (activeCategory !== 'mind' && p.category !== activeCategory) return false;
+    if (query && !p.name?.toLowerCase().includes(query) &&
+        !p.description?.toLowerCase().includes(query) &&
+        !p.profiles?.full_name?.toLowerCase().includes(query)) return false;
+    const price = parseFloat(p.sale_price || p.price || 0);
+    if (priceFilter !== 'all') {
+      const [lo, hi] = priceFilter.split('-').map(Number);
+      if (price < lo || price > hi) return false;
+    }
+    if (ratingMin > 0 && (p.avg_rating || 0) < ratingMin) return false;
+    return true;
+  });
+
+  switch (sort) {
+    case 'price-asc':  list.sort((a, b) => (a.sale_price||a.price) - (b.sale_price||b.price)); break;
+    case 'price-desc': list.sort((a, b) => (b.sale_price||b.price) - (a.sale_price||a.price)); break;
+    case 'rating':     list.sort((a, b) => (b.avg_rating||0) - (a.avg_rating||0)); break;
+    case 'sales':      list.sort((a, b) => (b.sales_count||0) - (a.sales_count||0)); break;
+    case 'newest':     list.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)); break;
+  }
+
+  const cnt = document.getElementById('product-count');
+  if (cnt) cnt.textContent = `(${list.length} termék)`;
+  renderProductGrid(list, 'product-grid');
+}
+
+function renderProductGrid(list, gridId) {
+  const grid = document.getElementById(gridId);
+  if (!grid) return;
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><span class="emoji">🔍</span><p>Nincs találat.</p></div>';
+    return;
+  }
+  grid.innerHTML = list.map(p => buildProductCard(p)).join('');
+}
+
+function buildProductCard(p) {
+  const price      = parseFloat(p.sale_price || p.price || 0);
+  const origPrice  = p.sale_price ? parseFloat(p.price) : null;
+  const isWished   = wishlistIds.has(p.id);
+  const stars      = '⭐'.repeat(Math.round(p.avg_rating || 0));
+  const coverImg   = p.cover_url
+    ? `<img src="${esc(p.cover_url)}" alt="${esc(p.name)}" loading="lazy" onerror="this.style.display='none'">`
+    : '';
+
+  return `
+    <div class="product-card" onclick="openProduct('${esc(p.id)}')">
+      <div class="product-thumb">
+        ${coverImg}
+        <span style="position:relative;z-index:1">${esc(p.emoji || '📦')}</span>
+        <div class="play-overlay"><div class="play-btn-sm">▶</div></div>
+        ${p.sale_price ? '<div class="product-badge">🔥 Akció</div>' : ''}
+        <button class="wish-btn ${isWished ? 'active' : ''}"
+          onclick="event.stopPropagation();toggleWish('${esc(p.id)}')"
+          title="Kedvencekhez">♥</button>
+        <button class="share-btn"
+          onclick="event.stopPropagation();shareProduct('link','${esc(p.id)}')"
+          title="Megosztás">🔗</button>
+      </div>
+      <div class="product-info">
+        <div class="product-cat">${esc(CAT_MAP[p.category] || p.category || '')}</div>
+        <div class="product-name">${esc(p.name)}</div>
+        <div class="product-seller">👤 ${esc(p.profiles?.full_name || 'Ismeretlen')}</div>
+        <div class="product-footer">
+          <div>
+            <div class="product-price">${price.toLocaleString('hu-HU')} Ft</div>
+            ${origPrice ? `<div style="text-decoration:line-through;color:var(--muted);font-size:.78rem">${origPrice.toLocaleString('hu-HU')} Ft</div>` : ''}
+          </div>
+          <div class="product-rating">${stars} <span style="color:var(--muted);font-size:.75rem">(${p.reviews_count || 0})</span></div>
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ════════════════════════════════════════════
+   §11  PRODUCT DETAIL
+════════════════════════════════════════════ */
+async function openProduct(id) {
+  if (!isValidUUID(id)) return;
+  const product = allProducts.find(p => p.id === id);
+  if (!product) {
+    const { data } = await sb.from('products').select('*, profiles(*)').eq('id', id).single();
+    if (!data) { showToast('Termék nem található.', 'error'); return; }
+    currentProduct = data;
+  } else {
+    currentProduct = product;
+  }
+  renderProductDetail(currentProduct);
+  showPage('detail');
+  window.history.pushState({}, '', `?product=${id}`);
+}
+
+function renderProductDetail(p) {
+  document.title = `${p.name} – DigiPiac`;
+
+  document.getElementById('detail-title').textContent = p.name || '';
+  document.getElementById('breadcrumb').innerHTML =
+    `<a href="#" onclick="showPage('home')">Főoldal</a><span class="sep">/</span>
+     <a href="#" onclick="filterCat('${esc(p.category)}',null)">${esc(CAT_MAP[p.category] || p.category)}</a>
+     <span class="sep">/</span><span>${esc(p.name)}</span>`;
+
+  const effectivePrice = parseFloat(p.sale_price || p.price || 0);
+  document.getElementById('detail-price').textContent = effectivePrice.toLocaleString('hu-HU') + ' Ft';
+  const origEl = document.getElementById('detail-price-orig');
+  if (p.sale_price) {
+    origEl.textContent = parseFloat(p.price).toLocaleString('hu-HU') + ' Ft';
+    origEl.style.display = 'block';
+    const pct = Math.round((1 - parseFloat(p.sale_price) / parseFloat(p.price)) * 100);
+    const badge = document.getElementById('discount-pct-badge');
+    badge.textContent = `-${pct}%`;
+    badge.style.display = 'inline-block';
+  } else {
+    origEl.style.display = 'none';
+    document.getElementById('discount-pct-badge').style.display = 'none';
+  }
+
+  document.getElementById('detail-desc').textContent = p.description || '';
+  const metaEl = document.getElementById('detail-meta');
+  metaEl.innerHTML = `
+    <span>⭐ ${p.avg_rating ? Number(p.avg_rating).toFixed(1) : '—'} (${p.reviews_count || 0} értékelés)</span>
+    <span>🛒 ${p.sales_count || 0} eladás</span>
+    <span>📅 ${new Date(p.created_at).toLocaleDateString('hu-HU')}</span>
+    ${p.category ? `<span>📂 ${esc(CAT_MAP[p.category] || p.category)}</span>` : ''}`;
+
+  const tagsEl = document.getElementById('detail-tags');
+  const tags = Array.isArray(p.tags) ? p.tags : (p.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+  tagsEl.innerHTML = tags.map(t => `<span class="tag">${esc(t)}</span>`).join('');
+
+  document.getElementById('detail-seller-name').textContent = p.profiles?.full_name || '—';
+  document.getElementById('detail-seller-meta').textContent =
+    `${p.profiles?.verified ? '✓ Hitelesített · ' : ''}${new Date(p.created_at).getFullYear()} óta`;
+  document.getElementById('detail-seller-link').onclick = () => openSeller(p.seller_id);
+
+  const features = ['Azonnali letöltés', 'Élethosszig frissítések', '30 napos garancia', 'Magyar ügyfélszolgálat'];
+  document.getElementById('buy-features').innerHTML = features.map(f => `<li>${esc(f)}</li>`).join('');
+
+  document.getElementById('aff-commission').textContent = (p.affiliate_pct || 20) + '%';
+  const affLinkEl = document.getElementById('aff-link-text');
+  if (currentUser && currentProfile?.affiliate_code) {
+    affLinkEl.textContent = `${window.location.origin}?product=${p.id}&ref=${currentProfile.affiliate_code}`;
+  } else {
+    affLinkEl.textContent = 'Bejelentkezés után elérhető';
+  }
+
+  buildGallery(p);
+  loadReviews(p.id);
+  loadQA(p.id);
+  loadRelated(p);
+
+  if (p.youtube_url) {
+    const ytId = extractYouTubeId(p.youtube_url);
+    if (ytId) {
+      document.getElementById('yt-iframe').src =
+        `https://www.youtube.com/embed/${ytId}?rel=0`;
+      document.getElementById('yt-wrap').style.display = 'block';
+    }
+  } else {
+    document.getElementById('yt-wrap').style.display = 'none';
+  }
+}
+
+function extractYouTubeId(url) {
+  const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function buildGallery(p) {
+  const slidesEl = document.getElementById('swiper-slides');
+  const thumbsEl = document.getElementById('gallery-thumbs');
+  const slides   = [];
+
+  if (p.cover_url) {
+    slides.push({ type: 'img', src: p.cover_url, label: 'Borítókép' });
+  } else {
+    slides.push({ type: 'emoji', val: p.emoji || '📦' });
+  }
+  (p.gallery || []).forEach((img, i) => slides.push({ type: 'img', src: img, label: `Kép ${i + 2}` }));
+
+  slidesEl.innerHTML = slides.map((s, i) =>
+    s.type === 'img'
+      ? `<div class="swiper-slide" onclick="openLightbox(${i})">
+           <img src="${esc(s.src)}" alt="">
+           <span class="slide-label">${esc(s.label || '')}</span>
+         </div>`
+      : `<div class="swiper-slide">${esc(s.val)}</div>`
+  ).join('');
+
+  thumbsEl.innerHTML = slides.map((s, i) =>
+    s.type === 'img'
+      ? `<div class="g-thumb ${i === 0 ? 'active' : ''}" onclick="goSlide(${i})">
+           <img src="${esc(s.src)}" alt="" loading="lazy">
+         </div>`
+      : `<div class="g-thumb ${i === 0 ? 'active' : ''}" onclick="goSlide(${i})">${esc(s.val)}</div>`
+  ).join('');
+
+  if (mainSwiper) { mainSwiper.destroy(true, true); mainSwiper = null; }
+  mainSwiper = new Swiper('#main-swiper', {
+    pagination: { el: '.swiper-pagination', clickable: true },
+    navigation: { nextEl: '.swiper-button-next', prevEl: '.swiper-button-prev' },
+    on: { slideChange() { updateThumbActive(this.activeIndex); } }
+  });
+}
+
+function goSlide(i) {
+  if (mainSwiper) mainSwiper.slideTo(i);
+  updateThumbActive(i);
+}
+function updateThumbActive(i) {
+  document.querySelectorAll('.g-thumb').forEach((t, idx) =>
+    t.classList.toggle('active', idx === i));
+}
+
+function openLightbox(i) {
+  const slides = document.querySelectorAll('.swiper-slide');
+  const slide  = slides[i];
+  if (!slide) return;
+  const img = slide.querySelector('img');
+  const lc  = document.getElementById('lightbox-content');
+  lc.innerHTML = img
+    ? `<img class="lightbox-img" src="${esc(img.src)}" alt="">`
+    : `<div style="font-size:8rem">${slide.textContent.trim()}</div>`;
+  document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() { document.getElementById('lightbox').classList.remove('open'); }
+
+function switchTab(tab, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab)?.classList.add('active');
+  btn.classList.add('active');
+}
+
+function shareProduct(type, id) {
+  const productId = id || currentProduct?.id;
+  const url = productId
+    ? `${window.location.origin}?product=${productId}`
+    : window.location.href;
+  const title = currentProduct?.name || 'DigiPiac termék';
+
+  if (type === 'facebook') {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`);
+  } else if (type === 'twitter') {
+    window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`);
+  } else {
+    navigator.clipboard.writeText(url).then(() => showToast('🔗 Link másolva!'));
+  }
+}
+
+function copyAffLink() {
+  const text = document.getElementById('aff-link-text').textContent;
+  if (text.includes('Bejelentkezés')) { openModal('modal-auth'); return; }
+  navigator.clipboard.writeText(text).then(() => showToast('🔗 Affiliate link másolva!'));
+}
+
+async function loadRelated(p) {
+  const related = allProducts
+    .filter(r => r.id !== p.id && r.category === p.category)
+    .slice(0, 4);
+  renderProductGrid(related, 'related-grid');
+}
+
+/* ════════════════════════════════════════════
+   §12  REVIEWS
+════════════════════════════════════════════ */
+async function loadReviews(productId) {
+  const { data } = await sb.from('reviews')
+    .select('*').eq('product_id', productId).order('created_at', { ascending: false });
+  const reviews = data || [];
+  const total   = reviews.length;
+  const avg     = total ? (reviews.reduce((s, r) => s + r.stars, 0) / total) : 0;
+  document.getElementById('avg-rating').textContent = avg ? avg.toFixed(1) : '—';
+
+  for (let s = 1; s <= 5; s++) {
+    const cnt = reviews.filter(r => r.stars === s).length;
+    const pct = total ? Math.round((cnt / total) * 100) : 0;
+    document.getElementById(`rbar${s}`).style.width    = pct + '%';
+    document.getElementById(`rbar${s}pct`).textContent = pct + '%';
+  }
+
+  document.getElementById('reviews-list').innerHTML = reviews.map(r => `
+    <div class="review-card">
+      <div class="reviewer">
+        <div class="reviewer-avatar">${esc((r.reviewer_name || '?').charAt(0).toUpperCase())}</div>
+        <div>
+          <div class="reviewer-name">${esc(r.reviewer_name || 'Névtelen')}</div>
+          <div class="reviewer-date">${new Date(r.created_at).toLocaleDateString('hu-HU')}</div>
+        </div>
+      </div>
+      <div class="review-stars">${'⭐'.repeat(r.stars || 0)}</div>
+      <div class="review-text">${esc(r.text || '')}</div>
+      ${r.verified_purchase ? '<div class="review-verified">✓ Igazolt vásárlás</div>' : ''}
+    </div>`).join('');
+}
+
+function setStars(n) {
+  selectedStars = n;
+  document.querySelectorAll('#star-select span').forEach((s, i) =>
+    s.classList.toggle('active', i < n));
+}
+
+async function submitReview() {
+  if (!currentProduct) return;
+  const name = document.getElementById('review-name').value.trim();
+  const text = document.getElementById('review-text').value.trim();
+  if (!name || !text || !selectedStars) {
+    showToast('Töltsd ki az összes mezőt és adj csillagot!', 'error'); return;
+  }
+  const btn = document.getElementById('submit-review-btn');
+  btn.disabled = true;
+  const { error } = await sb.from('reviews').insert({
+    product_id: currentProduct.id,
+    reviewer_name: name, text, stars: selectedStars,
+    user_id: currentUser?.id || null
+  });
+  btn.disabled = false;
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  document.getElementById('review-name').value = '';
+  document.getElementById('review-text').value = '';
+  setStars(0);
+  showToast('✅ Értékelés elküldve!');
+  loadReviews(currentProduct.id);
+}
+
+/* ════════════════════════════════════════════
+   §13  Q&A
+════════════════════════════════════════════ */
+async function loadQA(productId) {
+  const { data } = await sb.from('qas')
+    .select('*').eq('product_id', productId).order('created_at', { ascending: false });
+  document.getElementById('qa-list').innerHTML = (data || []).map(q => `
+    <div class="qa-item">
+      <div class="qa-question">❓ <strong>${esc(q.name || 'Névtelen')}</strong>: ${esc(q.question)}</div>
+      ${q.answer ? `<div class="qa-answer">💬 ${esc(q.answer)}</div>` : ''}
+    </div>`).join('');
+}
+
+async function submitQA() {
+  if (!currentProduct) return;
+  const name = document.getElementById('qa-name').value.trim();
+  const q    = document.getElementById('qa-question').value.trim();
+  if (!name || !q) { showToast('Töltsd ki a kérdés mezőket!', 'error'); return; }
+  const { error } = await sb.from('qas').insert({
+    product_id: currentProduct.id, name, question: q, user_id: currentUser?.id || null
+  });
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  document.getElementById('qa-name').value     = '';
+  document.getElementById('qa-question').value = '';
+  showToast('✅ Kérdés elküldve!');
+  loadQA(currentProduct.id);
+}
+
+/* ════════════════════════════════════════════
+   §14  CART
+════════════════════════════════════════════ */
+function loadCartFromStorage() {
+  try {
+    const raw = JSON.parse(localStorage.getItem('dp_cart') || '[]');
+    cart = Array.isArray(raw)
+      ? raw.map(sanitizeCartItem).filter(Boolean)
+      : [];
+  } catch { cart = []; }
+  updateCounts();
+}
+
+function saveCartToStorage() {
+  try { localStorage.setItem('dp_cart', JSON.stringify(cart)); } catch {}
+}
+
+function addToCart(product) {
+  if (!product) return;
+  const item = sanitizeCartItem({
+    id:          product.id,
+    name:        product.name,
+    price:       parseFloat(product.sale_price || product.price),
+    emoji:       product.emoji,
+    seller_id:   product.seller_id,
+    seller_name: product.profiles?.full_name || ''
+  });
+  if (!item) { showToast('Érvénytelen termék!', 'error'); return; }
+  if (cart.some(c => c.id === item.id)) {
+    showToast('Már a kosárban van!', 'info'); return;
+  }
+  cart.push(item);
+  saveCartToStorage();
+  updateCounts();
+  showToast('🛒 Kosárba téve: ' + item.name);
+}
+
+function buyNow(product) {
+  addToCart(product);
+  showPage('checkout');
+}
+
+function removeFromCart(id) {
+  cart = cart.filter(c => c.id !== id);
+  saveCartToStorage();
+  updateCounts();
+  renderCart();
+}
+
+function renderCart() {
+  const wrap     = document.getElementById('cart-items');
+  const summary  = document.getElementById('cart-summary-box');
+  const empty    = document.getElementById('cart-empty');
+
+  if (!cart.length) {
+    if (wrap)    wrap.innerHTML    = '';
+    if (summary) summary.innerHTML = '';
+    if (empty)   empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+
+  if (wrap) {
+    wrap.innerHTML = cart.map(item => `
+      <div class="cart-item">
+        <div class="cart-thumb">${esc(item.emoji || '📦')}</div>
+        <div class="cart-item-info">
+          <div class="name">${esc(item.name)}</div>
+          <div class="seller">👤 ${esc(item.seller_name || '—')}</div>
+        </div>
+        <div class="cart-item-price">${Number(item.price).toLocaleString('hu-HU')} Ft</div>
+        <button class="cart-remove" onclick="removeFromCart('${esc(item.id)}')" title="Eltávolítás">✕</button>
+      </div>`).join('');
+  }
+
+  const subtotal = cart.reduce((s, c) => s + c.price, 0);
+  const discount = couponApplied ? Math.round(subtotal * (couponApplied.pct / 100)) : 0;
+  const total    = subtotal - discount;
+
+  if (summary) {
+    summary.innerHTML = `
+      <div class="cart-summary">
+        <div class="cart-row"><span>Részösszeg</span><span>${subtotal.toLocaleString('hu-HU')} Ft</span></div>
+        ${discount ? `<div class="cart-row discount"><span>Kupon (${couponApplied.pct}%)</span><span>-${discount.toLocaleString('hu-HU')} Ft</span></div>` : ''}
+        <div class="cart-row total"><span>Összesen</span><span>${total.toLocaleString('hu-HU')} Ft</span></div>
+        <button class="btn btn-primary btn-full btn-lg" style="margin-top:16px" onclick="showPage('checkout')">
+          💳 Pénztárhoz
+        </button>
+      </div>`;
+  }
+}
+
+/* ════════════════════════════════════════════
+   §15  COUPON
+════════════════════════════════════════════ */
+const DEMO_COUPONS = { DEMO10: 10, DIGIPIAC20: 20, WELCOME15: 15 };
+
+async function applyCoupon() {
+  const code = (document.getElementById('coupon-input')?.value || '').trim().toUpperCase();
+  const statusEl = document.getElementById('coupon-status');
+  if (!code) return;
+  // Adatbázisból ellenőrzés
+  const { data } = await sb.from('coupons')
+    .select('*').eq('code', code).eq('active', true).single();
+  let pct = data?.discount_pct;
+  if (!pct && DEMO_COUPONS[code]) pct = DEMO_COUPONS[code]; // demo fallback
+  if (pct) {
+    couponApplied = { code, pct };
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">✅ ${pct}% kedvezmény alkalmazva!</span>`;
+    renderCart();
+  } else {
+    couponApplied = null;
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--danger)">❌ Érvénytelen kupon</span>`;
+  }
+}
+
+/* ════════════════════════════════════════════
+   §16  CHECKOUT SUMMARY
+════════════════════════════════════════════ */
+function renderCheckoutSummary() {
+  const wrap     = document.getElementById('checkout-summary');
+  const emailInp = document.getElementById('co-email');
+  if (!wrap) return;
+  if (!cart.length) {
+    wrap.innerHTML = '<p style="color:var(--muted)">A kosár üres.</p>'; return;
+  }
+  const subtotal = cart.reduce((s, c) => s + c.price, 0);
+  const discount = couponApplied ? Math.round(subtotal * (couponApplied.pct / 100)) : 0;
+  const total    = subtotal - discount;
+  wrap.innerHTML = `
+    ${cart.map(c => `
+      <div class="cart-row">
+        <span>${esc(c.emoji || '📦')} ${esc(c.name)}</span>
+        <span>${Number(c.price).toLocaleString('hu-HU')} Ft</span>
+      </div>`).join('')}
+    ${discount ? `<div class="cart-row discount"><span>Kupon (-${couponApplied.pct}%)</span><span>-${discount.toLocaleString('hu-HU')} Ft</span></div>` : ''}
+    <div class="cart-row total"><span>Összesen (ÁFA-val)</span><span>${total.toLocaleString('hu-HU')} Ft</span></div>`;
+
+  if (emailInp && currentUser?.email) emailInp.value = currentUser.email;
+}
+
+/* ════════════════════════════════════════════
+   §17  STRIPE CHECKOUT
+   ──────────────────────────────────────────
+   FIX #7: Kötelező GDPR checkboxok ellenőrzése
+   FIX #8: getStripe() segítségével inicializáljuk a Stripe-ot
+   FIX #3: completePurchase() eltávolítva, csak initiateStripeCheckout() létezik
+════════════════════════════════════════════ */
+async function initiateStripeCheckout() {
+  // FIX #7: GDPR checkbox-ok kötelező validációja fizetés előtt
+  const gdpr1 = document.getElementById('gdpr1')?.checked;
+  const gdpr2 = document.getElementById('gdpr2')?.checked;
+  const gdpr3 = document.getElementById('gdpr3')?.checked;
+  if (!gdpr1) { showToast('Az ÁSZF elfogadása kötelező!', 'error'); return; }
+  if (!gdpr2) { showToast('Az Adatvédelmi irányelvek elfogadása kötelező!', 'error'); return; }
+  if (!gdpr3) { showToast('A digitális tartalom azonnali hozzáféréséhez való hozzájárulás kötelező!', 'error'); return; }
+
+  if (!cart.length) { showToast('A kosár üres!', 'error'); return; }
+
+  const email = document.getElementById('co-email')?.value.trim();
+  if (!email) { showToast('Töltsd ki az e-mail mezőt!', 'error'); return; }
+
+  const btn = document.getElementById('pay-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Átirányítás...'; }
+
+  // Demo mód: ha még nincs Stripe kulcs konfigurálva
+  if (STRIPE_PUBLISHABLE_KEY.includes('REPLACE')) {
+    setTimeout(() => {
+      if (btn) { btn.disabled = false; btn.textContent = '🔒 Biztonságos fizetés a Stripe-on'; }
+      cart = []; saveCartToStorage(); updateCounts();
+      showSuccessPage([]);
+    }, 1500);
+    return;
+  }
+
+  try {
+    // Valódi Stripe Checkout session létrehozása az Edge Function-on keresztül
+    const lineItems = cart.map(item => ({
+      price_data: {
+        currency: 'huf',
+        product_data: { name: item.name },
+        unit_amount: Math.round(item.price) // Stripe HUF esetén fillér nélkül, de egész számot vár
+      },
+      quantity: 1
+    }));
+
+    const resp = await fetch(CHECKOUT_EDGE_FUNCTION, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({
+        lineItems,
+        customerEmail: email,
+        successUrl: `${window.location.origin}?stripe_success=1`,
+        cancelUrl:  `${window.location.origin}?stripe_cancel=1`,
+        metadata: {
+          buyer_id:  currentUser?.id || '',
+          cart_ids:  cart.map(c => c.id).join(','),
+          coupon:    couponApplied?.code || ''
+        }
+      })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+
+    const { sessionId } = await resp.json();
+
+    // FIX #8: Stripe.redirectToCheckout hívása
+    const stripe = getStripe();
+    if (!stripe) throw new Error('Stripe nem inicializálható.');
+    const { error } = await stripe.redirectToCheckout({ sessionId });
+    if (error) throw error;
+
+  } catch (err) {
+    console.error('Stripe checkout error:', err);
+    showToast('Fizetési hiba: ' + (err.message || 'Ismeretlen hiba'), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '🔒 Biztonságos fizetés a Stripe-on'; }
+  }
+}
+
+/* ════════════════════════════════════════════
+   §18  STRIPE RETURN HANDLER
+   ──────────────────────────────────────────
+   FIX #1: handleStripeReturn() MEGVALÓSÍTVA
+   Ez a függvény kezeli, amikor Stripe visszairányít
+   success vagy cancel URL-re. A session_id URL
+   paraméterből olvassa ki a megvásárolt termékeket.
+   FIX #6: A success oldal letöltési linkjeit is
+   itt töltjük be (webhook után, orders táblából).
+════════════════════════════════════════════ */
+async function handleStripeReturn() {
+  const params = new URLSearchParams(window.location.search);
+
+  // Sikeres fizetés visszatérés
+  if (params.has('stripe_success')) {
+    // URL cleanup (ne maradjon meg a ?stripe_success)
+    window.history.replaceState({}, '', window.location.pathname);
+
+    // Kosár törlése – a fizetés megtörtént
+    cart = []; saveCartToStorage(); updateCounts();
+
+    // FIX #6: Letöltési linkek betöltése az orders táblából
+    let downloadItems = [];
+    if (currentUser) {
+      try {
+        const { data } = await sb.from('orders')
+          .select('*, products(name, emoji, download_url)')
+          .eq('buyer_id', currentUser.id)
+          .eq('status', 'paid')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        downloadItems = data || [];
+      } catch (e) { console.warn('handleStripeReturn orders:', e); }
+    }
+
+    showSuccessPage(downloadItems);
+    return;
+  }
+
+  // Megszakított fizetés visszatérés
+  if (params.has('stripe_cancel')) {
+    window.history.replaceState({}, '', window.location.pathname);
+    showToast('A fizetést megszakítottad.', 'info');
+    showPage('cart');
+  }
+}
+
+function showSuccessPage(orders) {
+  const dlList = document.getElementById('download-list');
+  if (dlList) {
+    if (!orders || !orders.length) {
+      dlList.innerHTML = '<p style="color:var(--muted);font-size:.85rem;padding:10px 0">A termékek hamarosan elérhetők. E-mailt küldünk a letöltési linkekkel.</p>';
+    } else {
+      dlList.innerHTML = orders.map(o => {
+        const dl = o.products?.download_url;
+        return `
+          <div class="dl-item">
+            <span>${esc(o.products?.emoji || '📦')} ${esc(o.products?.name || 'Termék')}</span>
+            ${dl
+              ? `<a href="${esc(dl)}" class="btn btn-success" style="padding:5px 14px;font-size:.78rem" download>⬇ Letöltés</a>`
+              : `<span style="color:var(--muted);font-size:.78rem">Hamarosan</span>`}
+          </div>`;
+      }).join('');
+    }
+  }
+  showPage('success');
+}
+
+/* ════════════════════════════════════════════
+   §19  WISHLIST
+════════════════════════════════════════════ */
+async function loadWishlist() {
+  if (!currentUser) return;
+  const { data } = await sb.from('wishlist').select('product_id').eq('user_id', currentUser.id);
+  wishlistIds = new Set((data || []).map(w => w.product_id));
+  updateCounts();
+}
+
+async function toggleWish(productId) {
+  if (!currentUser) { openModal('modal-auth'); return; }
+  if (wishlistIds.has(productId)) {
+    await sb.from('wishlist').delete()
+      .eq('user_id', currentUser.id).eq('product_id', productId);
+    wishlistIds.delete(productId);
+    showToast('💔 Eltávolítva a kedvencekből');
+  } else {
+    await sb.from('wishlist').insert({ user_id: currentUser.id, product_id: productId });
+    wishlistIds.add(productId);
+    showToast('❤️ Kedvencekhez adva!');
+  }
+  updateCounts();
+  document.querySelectorAll('.wish-btn').forEach(btn => {
+    if (btn.closest('[onclick*="' + productId + '"]')) {
+      btn.classList.toggle('active', wishlistIds.has(productId));
+    }
+  });
+}
+
+function renderWishlist() {
+  const grid = document.getElementById('wishlist-grid');
+  const empty = document.getElementById('wish-empty');
+  const wished = allProducts.filter(p => wishlistIds.has(p.id));
+  if (!wished.length) {
+    if (grid)  grid.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  renderProductGrid(wished, 'wishlist-grid');
+}
+
+/* ════════════════════════════════════════════
+   §20  SELL
+════════════════════════════════════════════ */
+function handleFileSelect(event, type) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (type === 'file') {
+    pendingFileUpload = file;
+    document.getElementById('file-upload-status').textContent = `✅ Kiválasztva: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+  } else {
+    pendingCoverFile = file;
+    document.getElementById('cover-upload-status').textContent = `✅ Kiválasztva: ${file.name}`;
+    const reader = new FileReader();
+    reader.onload = e => {
+      const preview = document.getElementById('cover-preview');
+      preview.src = e.target.result;
+      document.getElementById('cover-preview-wrap').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function updatePricePreview() {
+  const price = parseFloat(document.getElementById('sell-price')?.value) || 0;
+  const sale  = parseFloat(document.getElementById('sell-sale-price')?.value) || 0;
+  const eff   = sale && sale < price ? sale : price;
+  if (!eff) return;
+  const fee  = Math.round(eff * 0.15);
+  const vat  = Math.round(eff * 0.27 / 1.27);
+  const you  = eff - fee;
+  const fmt  = n => n.toLocaleString('hu-HU') + ' Ft';
+  document.getElementById('pp-price').textContent = fmt(eff);
+  document.getElementById('pp-fee').textContent   = fmt(fee);
+  document.getElementById('pp-vat').textContent   = fmt(vat);
+  document.getElementById('pp-you').textContent   = fmt(you);
+}
+
+async function submitProduct() {
+  if (!currentUser) { openModal('modal-auth'); return; }
+  const name  = document.getElementById('sell-name')?.value.trim();
+  const desc  = document.getElementById('sell-desc')?.value.trim();
+  const cat   = document.getElementById('sell-cat')?.value;
+  const price = parseFloat(document.getElementById('sell-price')?.value);
+  const sale  = parseFloat(document.getElementById('sell-sale-price')?.value) || null;
+  const emoji = document.getElementById('sell-emoji')?.value.trim() || '📦';
+  const tags  = (document.getElementById('sell-tags')?.value || '').split(',').map(t => t.trim()).filter(Boolean);
+  const yt    = document.getElementById('sell-yt')?.value.trim() || null;
+  const aff   = parseFloat(document.getElementById('sell-aff')?.value) || 20;
+
+  if (!name || !desc || !cat) { showToast('Töltsd ki a kötelező mezőket!', 'error'); return; }
+  if (!price || price < 500)  { showToast('Az ár minimum 500 Ft!', 'error'); return; }
+  if (!pendingFileUpload)     { showToast('Tölts fel egy fájlt!', 'error'); return; }
+
+  const btn = document.getElementById('publish-btn');
+  btn.disabled = true; btn.textContent = '⏳ Feltöltés...';
+
+  try {
+    // Fájl feltöltése
+    const fileExt  = pendingFileUpload.name.split('.').pop();
+    const filePath = `products/${currentUser.id}/${Date.now()}.${fileExt}`;
+    const { error: fileErr } = await sb.storage.from('products').upload(filePath, pendingFileUpload);
+    if (fileErr) throw fileErr;
+    const { data: { publicUrl: fileUrl } } = sb.storage.from('products').getPublicUrl(filePath);
+
+    // Borítókép feltöltése (opcionális)
+    let coverUrl = null;
+    if (pendingCoverFile) {
+      const coverExt  = pendingCoverFile.name.split('.').pop();
+      const coverPath = `covers/${currentUser.id}/${Date.now()}.${coverExt}`;
+      const { error: coverErr } = await sb.storage.from('covers').upload(coverPath, pendingCoverFile);
+      if (!coverErr) {
+        const { data: { publicUrl } } = sb.storage.from('covers').getPublicUrl(coverPath);
+        coverUrl = publicUrl;
+      }
+    }
+
+    const { error: dbErr } = await sb.from('products').insert({
+      seller_id: currentUser.id, name, description: desc, category: cat,
+      price, sale_price: sale, emoji, tags, youtube_url: yt,
+      affiliate_pct: aff, status: 'pending',
+      file_url: fileUrl, cover_url: coverUrl
+    });
+    if (dbErr) throw dbErr;
+
+    showToast('✅ Termék feltöltve! Jóváhagyásra vár.');
+    btn.disabled = false; btn.textContent = '🚀 Termék közzététele';
+    pendingFileUpload = pendingCoverFile = null;
+    showPage('dashboard');
+  } catch (e) {
+    console.error('submitProduct:', e);
+    showToast('Feltöltési hiba: ' + e.message, 'error');
+    btn.disabled = false; btn.textContent = '🚀 Termék közzététele';
+  }
+}
+
+/* ════════════════════════════════════════════
+   §21  DASHBOARD
+════════════════════════════════════════════ */
+async function loadDashboard() {
+  if (!currentUser) return;
+  document.getElementById('dash-subtitle').textContent = `Üdv, ${currentProfile?.full_name || ''}!`;
+  try {
+    const [productsRes, ordersRes] = await Promise.all([
+      sb.from('products').select('*').eq('seller_id', currentUser.id),
+      sb.from('orders').select('*').eq('seller_id', currentUser.id)
+    ]);
+    const products = productsRes.data || [];
+    const orders   = ordersRes.data  || [];
+    const revenue  = orders.filter(o => o.status === 'paid').reduce((s, o) => s + Number(o.amount || 0), 0);
+    const balance  = Number(currentProfile?.balance || 0);
+    const ratings  = products.filter(p => p.avg_rating).map(p => p.avg_rating);
+    const avgRating = ratings.length ? (ratings.reduce((s, r) => s + r, 0) / ratings.length).toFixed(1) : '—';
+
+    document.getElementById('dash-revenue').textContent  = revenue.toLocaleString('hu-HU') + ' Ft';
+    document.getElementById('dash-sales').textContent    = orders.length;
+    document.getElementById('dash-rating').textContent   = avgRating;
+    document.getElementById('dash-products').textContent = products.filter(p => p.status === 'active').length;
+    document.getElementById('dash-balance').textContent  = balance.toLocaleString('hu-HU') + ' Ft';
+
+    renderMyProductsTable(products);
+    renderMySalesTable(orders.slice(0, 15));
+    if (!chartsInited) { initRevenueChart(orders); chartsInited = true; }
+  } catch (e) { console.warn('loadDashboard:', e); }
+}
+
+function renderMyProductsTable(products) {
+  const tbody = document.getElementById('my-products-table');
+  if (!tbody) return;
+  tbody.innerHTML = products.length ? products.map(p => `
+    <tr>
+      <td>${esc(p.emoji || '📦')} ${esc(p.name)}</td>
+      <td>${Number(p.sale_price || p.price || 0).toLocaleString('hu-HU')} Ft</td>
+      <td>${p.sales_count || 0}</td>
+      <td><span class="status-badge ${p.status === 'active' ? 'paid' : 'pending'}">${esc(STATUS_MAP[p.status] || p.status)}</span></td>
+      <td>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:.75rem" onclick="openProduct('${esc(p.id)}')">👁 Megtekintés</button>
+      </td>
+    </tr>`).join('')
+    : '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Még nincs termékeid.</td></tr>';
+}
+
+function renderMySalesTable(orders) {
+  const tbody = document.getElementById('my-sales-table');
+  if (!tbody) return;
+  tbody.innerHTML = orders.length ? orders.map(o => `
+    <tr>
+      <td>${esc(o.product_name || 'Termék')}</td>
+      <td>${esc(o.buyer_email || '—')}</td>
+      <td>${new Date(o.created_at).toLocaleDateString('hu-HU')}</td>
+      <td>${Number(o.amount || 0).toLocaleString('hu-HU')} Ft</td>
+      <td><span class="status-badge ${o.status === 'paid' ? 'paid' : o.status === 'refunded' ? 'refund' : 'pending'}">${esc(PAYMENT_STATUS_MAP[o.status] || o.status)}</span></td>
+    </tr>`).join('')
+    : '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Még nincs eladásod.</td></tr>';
+}
+
+function initRevenueChart(orders) {
+  const canvas = document.getElementById('revenue-chart');
+  if (!canvas || !window.Chart) return;
+  const months = [];
+  const data   = [];
+  const now    = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(d.toLocaleDateString('hu-HU', { month: 'short' }));
+    const monthOrders = orders.filter(o => {
+      const od = new Date(o.created_at);
+      return od.getMonth() === d.getMonth() && od.getFullYear() === d.getFullYear() && o.status === 'paid';
+    });
+    data.push(monthOrders.reduce((s, o) => s + Number(o.amount || 0), 0));
+  }
+  new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [{ label: 'Bevétel (Ft)', data, backgroundColor: '#6c63ff88', borderColor: '#6c63ff', borderWidth: 2 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+}
+
+/* ════════════════════════════════════════════
+   §22  ADMIN
+════════════════════════════════════════════ */
+async function loadAdmin() {
+  if (!currentProfile || currentProfile.role !== 'admin') {
+    showToast('Nincs jogosultságod!', 'error'); showPage('home'); return;
+  }
+  try {
+    const [usersRes, productsRes, pendingRes] = await Promise.all([
+      sb.from('profiles').select('*', { count: 'exact', head: true }),
+      sb.from('products').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+      sb.from('products').select('*', { count: 'exact', head: true }).eq('status', 'pending')
+    ]);
+    document.getElementById('admin-stat-users').textContent    = usersRes.count   || 0;
+    document.getElementById('admin-stat-products').textContent = productsRes.count || 0;
+    document.getElementById('admin-stat-pending').textContent  = pendingRes.count  || 0;
+    document.getElementById('admin-stat-sellers').textContent  = '—';
+    document.getElementById('admin-stat-reports').textContent  = '0';
+    document.getElementById('admin-stat-revenue').textContent  = '—';
+
+    loadAdminPending();
+  } catch (e) { console.warn('loadAdmin:', e); }
+}
+
+async function loadAdminPending() {
+  const { data } = await sb.from('products').select('*, profiles(full_name)')
+    .eq('status', 'pending').order('created_at', { ascending: false });
+  const wrap = document.getElementById('admin-pending-list');
+  if (!wrap) return;
+  wrap.innerHTML = (data || []).map(p => `
+    <div class="pending-product">
+      <div style="font-size:2rem">${esc(p.emoji || '📦')}</div>
+      <div style="flex:1">
+        <div style="font-weight:700">${esc(p.name)}</div>
+        <div style="color:var(--muted);font-size:.78rem">👤 ${esc(p.profiles?.full_name || '—')} · ${Number(p.price || 0).toLocaleString('hu-HU')} Ft</div>
+      </div>
+      <button class="btn btn-success" onclick="approveProduct('${esc(p.id)}')">✅ Jóváhagyás</button>
+      <button class="btn btn-danger"  onclick="rejectProduct('${esc(p.id)}')">❌ Elutasítás</button>
+    </div>`).join('') || '<p style="color:var(--muted)">Nincs jóváhagyásra váró termék.</p>';
+}
+
+async function approveProduct(id) {
+  await sb.from('products').update({ status: 'active' }).eq('id', id);
+  showToast('✅ Termék jóváhagyva!');
+  loadAdminPending();
+  allProducts = [];
+  loadProducts();
+}
+
+async function rejectProduct(id) {
+  await sb.from('products').update({ status: 'rejected' }).eq('id', id);
+  showToast('❌ Termék elutasítva!');
+  loadAdminPending();
+}
+
+async function searchAdminUsers() {
+  const q = document.getElementById('admin-user-search')?.value.trim() || '';
+  let query = sb.from('profiles').select('*').order('created_at', { ascending: false }).limit(50);
+  if (q) query = query.ilike('full_name', `%${q}%`);
+  const { data } = await query;
+  const wrap = document.getElementById('admin-users-list');
+  if (!wrap) return;
+  wrap.innerHTML = (data || []).map(u => `
+    <div class="user-row">
+      <div class="user-ava">${(u.full_name || 'U').charAt(0).toUpperCase()}</div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:.9rem">${esc(u.full_name || '—')}</div>
+        <div style="color:var(--muted);font-size:.75rem">${esc(u.email || '—')} · ${esc(u.role || 'user')}</div>
+      </div>
+      ${u.role !== 'admin' ? `<button class="btn btn-warning" style="font-size:.75rem;padding:4px 10px" onclick="banUser('${esc(u.id)}')">Tiltás</button>` : ''}
+    </div>`).join('') || '<p style="color:var(--muted)">Nincs találat.</p>';
+}
+
+async function banUser(userId) {
+  if (!confirm('Biztosan tiltani szeretnéd ezt a felhasználót?')) return;
+  await sb.from('profiles').update({ role: 'banned' }).eq('id', userId);
+  showToast('🚫 Felhasználó tiltva.');
+  searchAdminUsers();
+}
+
+function switchAdminTab(tab, btn) {
+  document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.admin-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('admin-' + tab)?.classList.add('active');
+  btn.classList.add('active');
+  const loaders = {
+    users:    searchAdminUsers,
+    products: loadAdminProducts,
+    finance:  loadAdminFinance,
+    tickets:  loadAdminTickets
+  };
+  if (loaders[tab]) loaders[tab]();
+}
+
+async function loadAdminProducts() {
+  const { data } = await sb.from('products').select('*, profiles(full_name)')
+    .order('created_at', { ascending: false }).limit(50);
+  const tbody = document.getElementById('admin-products-table');
+  if (!tbody) return;
+  tbody.innerHTML = (data || []).map(p => `
+    <tr>
+      <td>${esc(p.emoji || '📦')} ${esc(p.name)}</td>
+      <td>${esc(p.profiles?.full_name || '—')}</td>
+      <td>${Number(p.price || 0).toLocaleString('hu-HU')} Ft</td>
+      <td>${p.sales_count || 0}</td>
+      <td><span class="status-badge ${p.status === 'active' ? 'paid' : 'pending'}">${esc(STATUS_MAP[p.status] || p.status)}</span></td>
+      <td>
+        <button class="btn btn-danger" style="font-size:.72rem;padding:3px 8px"
+          onclick="adminDeleteProduct('${esc(p.id)}')">Törlés</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function adminDeleteProduct(id) {
+  if (!confirm('Biztosan törölni szeretnéd?')) return;
+  await sb.from('products').delete().eq('id', id);
+  showToast('🗑️ Termék törölve.');
+  loadAdminProducts();
+}
+
+async function loadAdminFinance() {
+  const { data } = await sb.from('profiles').select('id, full_name, balance').limit(30);
+  const tbody = document.getElementById('admin-finance-table');
+  if (!tbody) return;
+  tbody.innerHTML = (data || []).map(u => `
+    <tr>
+      <td>${esc(u.full_name || '—')}</td>
+      <td>—</td>
+      <td>${Number(u.balance || 0).toLocaleString('hu-HU')} Ft</td>
+      <td><span class="status-badge paid">Aktív</span></td>
+    </tr>`).join('');
+}
+
+async function loadAdminTickets() {
+  const { data } = await sb.from('support_tickets').select('*').order('created_at', { ascending: false }).limit(30);
+  const wrap = document.getElementById('admin-tickets-list');
+  if (!wrap) return;
+  wrap.innerHTML = (data || []).map(t => `
+    <div class="ticket-item">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong>${esc(t.subject || '—')}</strong>
+        <span class="ticket-status ${t.status === 'open' ? 'open' : 'closed'}">${t.status === 'open' ? 'Nyitott' : 'Lezárt'}</span>
+      </div>
+      <div style="color:var(--muted);font-size:.8rem">${esc(t.email || '—')} · ${new Date(t.created_at).toLocaleDateString('hu-HU')}</div>
+      <div style="font-size:.82rem;margin-top:8px">${esc(t.message || '')}</div>
+      ${t.status === 'open' ? `<button class="btn btn-outline" style="margin-top:8px;font-size:.75rem;padding:4px 10px" onclick="closeTicket('${esc(t.id)}')">Lezárás</button>` : ''}
+    </div>`).join('') || '<p style="color:var(--muted)">Nincs ticket.</p>';
+}
+
+async function closeTicket(id) {
+  await sb.from('support_tickets').update({ status: 'closed' }).eq('id', id);
+  showToast('✅ Ticket lezárva.');
+  loadAdminTickets();
+}
+
+/* ════════════════════════════════════════════
+   §23  PAYOUT
+════════════════════════════════════════════ */
+async function loadPayout() {
+  if (!currentUser || !currentProfile) return;
+  const balance = Number(currentProfile.balance || 0);
+  document.getElementById('payout-balance-amount').textContent = balance.toLocaleString('hu-HU') + ' Ft';
+  document.getElementById('payout-bank-acc').value  = currentProfile.bank_account || '';
+  document.getElementById('payout-bank-name').value = currentProfile.bank_name    || '';
+
+  const { data } = await sb.from('payouts').select('*')
+    .eq('user_id', currentUser.id).order('created_at', { ascending: false });
+  const tbody = document.getElementById('payout-history');
+  if (tbody) {
+    tbody.innerHTML = (data || []).map(p => `
+      <tr>
+        <td>${new Date(p.created_at).toLocaleDateString('hu-HU')}</td>
+        <td>${Number(p.amount || 0).toLocaleString('hu-HU')} Ft</td>
+        <td>${esc(p.method || 'Banki átutalás')}</td>
+        <td><span class="status-badge ${p.status === 'paid' ? 'paid' : 'pending'}">${esc(PAYMENT_STATUS_MAP[p.status] || p.status)}</span></td>
+      </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--muted)">Nincs előzmény.</td></tr>';
+  }
+}
+
+async function requestPayout() {
+  if (!currentUser) return;
+  const balance = Number(currentProfile?.balance || 0);
+  if (balance < 5000) { showToast('Minimum 5 000 Ft szükséges a kifizetéshez!', 'error'); return; }
+  const { error } = await sb.from('payouts').insert({
+    user_id: currentUser.id, amount: balance, status: 'pending', method: 'Banki átutalás'
+  });
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  await sb.from('profiles').update({ balance: 0 }).eq('id', currentUser.id);
+  await loadProfile();
+  showToast('✅ Kifizetés igényelve!');
+  loadPayout();
+}
+
+async function saveBankDetails() {
+  if (!currentUser) return;
+  const acc  = document.getElementById('payout-bank-acc')?.value.trim();
+  const name = document.getElementById('payout-bank-name')?.value.trim();
+  const { error } = await sb.from('profiles').update({
+    bank_account: acc, bank_name: name
+  }).eq('id', currentUser.id);
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  await loadProfile();
+  showToast('✅ Bankadatok mentve!');
+}
+
+/* ════════════════════════════════════════════
+   §24  AFFILIATE
+════════════════════════════════════════════ */
+async function loadAffiliate() {
+  if (!currentUser || !currentProfile) return;
+  const code = currentProfile.affiliate_code;
+  const mainLink = `${window.location.origin}?ref=${code}`;
+  document.getElementById('aff-main-link').textContent = mainLink;
+
+  const { data: clicks } = await sb.from('affiliate_clicks')
+    .select('id', { count: 'exact' }).eq('affiliate_user_id', currentUser.id);
+  const { data: convs } = await sb.from('affiliate_conversions')
+    .select('*').eq('affiliate_user_id', currentUser.id);
+
+  const totalClicks = clicks?.length || 0;
+  const totalConvs  = convs?.length || 0;
+  const totalEarn   = (convs || []).reduce((s, c) => s + Number(c.commission || 0), 0);
+  const rate        = totalClicks ? ((totalConvs / totalClicks) * 100).toFixed(1) + '%' : '0%';
+
+  document.getElementById('aff-total-earn').textContent = totalEarn.toLocaleString('hu-HU') + ' Ft';
+  document.getElementById('aff-clicks').textContent      = totalClicks;
+  document.getElementById('aff-conversions').textContent = totalConvs;
+  document.getElementById('aff-rate').textContent        = rate;
+
+  const tbody = document.getElementById('aff-conversions-table');
+  if (tbody) {
+    tbody.innerHTML = (convs || []).map(c => `
+      <tr>
+        <td>${esc(c.product_name || '—')}</td>
+        <td>${new Date(c.created_at).toLocaleDateString('hu-HU')}</td>
+        <td>${Number(c.sale_price || 0).toLocaleString('hu-HU')} Ft</td>
+        <td>${Number(c.commission || 0).toLocaleString('hu-HU')} Ft</td>
+        <td><span class="status-badge paid">Fizetve</span></td>
+      </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">Nincs konverzió.</td></tr>';
+  }
+
+  if (!affChartInited) { initAffChart(convs || []); affChartInited = true; }
+}
+
+function initAffChart(convs) {
+  const canvas = document.getElementById('aff-chart');
+  if (!canvas || !window.Chart) return;
+  const labels = [];
+  const data   = [];
+  const now    = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    labels.push(d.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' }));
+    const dayConvs = convs.filter(c => {
+      const cd = new Date(c.created_at);
+      return cd.toDateString() === d.toDateString();
+    });
+    data.push(dayConvs.reduce((s, c) => s + Number(c.commission || 0), 0));
+  }
+  new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{ label: 'Affiliate bevétel (Ft)', data, borderColor: '#3ecfcf', backgroundColor: '#3ecfcf22', tension: 0.4, fill: true }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+}
+
+function copyMainAffLink() {
+  const link = document.getElementById('aff-main-link')?.textContent;
+  if (link && link !== '—') navigator.clipboard.writeText(link).then(() => showToast('🔗 Link másolva!'));
+}
+
+/* ════════════════════════════════════════════
+   §25  SELLER PAGE
+════════════════════════════════════════════ */
+async function openSeller(sellerId) {
+  if (!isValidUUID(sellerId)) return;
+  const { data: profile } = await sb.from('profiles').select('*').eq('id', sellerId).single();
+  if (!profile) { showToast('Eladó nem található.', 'error'); return; }
+
+  document.getElementById('seller-name').textContent = profile.full_name || '—';
+  document.getElementById('seller-bio').textContent  = profile.bio || '';
+  if (profile.avatar_url) {
+    document.getElementById('seller-avatar').innerHTML = `<img src="${esc(profile.avatar_url)}" alt="">`;
+  }
+  document.getElementById('seller-verified').style.display = profile.verified ? 'inline-flex' : 'none';
+  document.getElementById('s-since').textContent = new Date(profile.created_at).getFullYear();
+
+  const sellerProducts = allProducts.filter(p => p.seller_id === sellerId);
+  document.getElementById('s-products').textContent = sellerProducts.length;
+  document.getElementById('s-sales').textContent    = sellerProducts.reduce((s, p) => s + (p.sales_count || 0), 0);
+  const ratings = sellerProducts.filter(p => p.avg_rating).map(p => p.avg_rating);
+  document.getElementById('s-rating').textContent   = ratings.length
+    ? (ratings.reduce((s, r) => s + r, 0) / ratings.length).toFixed(1) : '—';
+
+  renderProductGrid(sellerProducts, 'seller-products-grid');
+  showPage('seller');
+}
+
+/* ════════════════════════════════════════════
+   §26  NOTIFICATIONS
+════════════════════════════════════════════ */
+async function loadNotifications() {
+  if (!currentUser) return;
+  const { data } = await sb.from('notifications')
+    .select('*').eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false }).limit(10);
+  const list    = document.getElementById('notif-list');
+  const dot     = document.getElementById('notif-dot');
+  const unread  = (data || []).filter(n => !n.read);
+  if (dot) dot.style.display = unread.length ? 'block' : 'none';
+  if (list) {
+    list.innerHTML = (data || []).length ? (data || []).map(n => `
+      <div class="notif-item ${n.read ? '' : 'unread'}">
+        <div class="notif-icon">${n.type === 'sale' ? '🛒' : n.type === 'review' ? '⭐' : '🔔'}</div>
+        <div>
+          <div class="notif-text">${esc(n.message)}</div>
+          <div class="notif-time">${new Date(n.created_at).toLocaleString('hu-HU')}</div>
+        </div>
+      </div>`).join('')
+      : '<div style="padding:20px;text-align:center;color:var(--muted);font-size:.85rem">Nincs értesítés</div>';
+  }
+}
+
+function toggleNotif() {
+  notifOpen = !notifOpen;
+  document.getElementById('notif-dropdown')?.classList.toggle('open', notifOpen);
+  document.addEventListener('click', closeNotifOutside, { once: true });
+}
+
+function closeNotifOutside(e) {
+  if (!e.target.closest('#notif-dropdown') && !e.target.closest('#notif-trigger')) {
+    document.getElementById('notif-dropdown')?.classList.remove('open');
+    notifOpen = false;
+  }
+}
+
+async function markAllRead() {
+  if (!currentUser) return;
+  await sb.from('notifications').update({ read: true }).eq('user_id', currentUser.id);
+  document.getElementById('notif-dot').style.display = 'none';
+  loadNotifications();
+}
+
+/* ════════════════════════════════════════════
+   §27  CONTACT / TICKETS
+════════════════════════════════════════════ */
+async function submitContactForm() {
+  const email   = document.getElementById('ticket-email')?.value.trim();
+  const subject = document.getElementById('ticket-subject')?.value.trim();
+  const cat     = document.getElementById('ticket-cat')?.value;
+  const msg     = document.getElementById('ticket-msg')?.value.trim();
+  if (!email || !subject || !msg) { showToast('Töltsd ki a kötelező mezőket!', 'error'); return; }
+  const btn = document.getElementById('ticket-submit-btn');
+  btn.disabled = true;
+  const { error } = await sb.from('support_tickets').insert({
+    email, subject, category: cat, message: msg,
+    user_id: currentUser?.id || null, status: 'open'
+  });
+  btn.disabled = false;
+  if (error) { showToast('Hiba: ' + error.message, 'error'); return; }
+  ['ticket-email', 'ticket-subject', 'ticket-msg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  showToast('✅ Ticket elküldve! 24 órán belül válaszolunk.');
+  loadMyTickets();
+}
+
+async function loadMyTickets() {
+  const wrap = document.getElementById('my-tickets-list');
+  if (!wrap) return;
+  if (!currentUser) {
+    wrap.innerHTML = '<p style="color:var(--muted);font-size:.85rem">Bejelentkezés után látod ticketjeidet.</p>';
+    return;
+  }
+  const { data } = await sb.from('support_tickets').select('*')
+    .eq('user_id', currentUser.id).order('created_at', { ascending: false });
+  wrap.innerHTML = (data || []).map(t => `
+    <div class="ticket-item">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <strong>${esc(t.subject || '—')}</strong>
+        <span class="ticket-status ${t.status === 'open' ? 'open' : 'closed'}">${t.status === 'open' ? 'Nyitott' : 'Lezárt'}</span>
+      </div>
+      <div style="color:var(--muted);font-size:.78rem">${new Date(t.created_at).toLocaleDateString('hu-HU')}</div>
+    </div>`).join('') || '<p style="color:var(--muted);font-size:.85rem">Nincs ticketed.</p>';
+}
+
+/* ════════════════════════════════════════════
+   §28  UI UTILITIES
+════════════════════════════════════════════ */
+function updateCounts() {
+  document.getElementById('cart-count').textContent = cart.length;
+  document.getElementById('wish-count').textContent = wishlistIds.size;
+}
+
+let toastTimer;
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  const m = document.getElementById('toast-msg');
+  m.textContent = msg;
+  t.className = 'toast show' + (type === 'error' ? ' error' : type === 'info' ? ' info' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+function openModal(id)  { document.getElementById(id)?.classList.add('open'); }
+function closeModal(id) { document.getElementById(id)?.classList.remove('open'); }
+document.querySelectorAll('.modal').forEach(m =>
+  m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); })
+);
+
+function acceptCookies() {
+  localStorage.setItem('dp_cookies', '1');
+  document.getElementById('cookie-banner').style.display = 'none';
+}
+
+function saveCookieSettings() {
+  localStorage.setItem('dp_cookies', '1');
+  closeModal('modal-cookie-settings');
+  document.getElementById('cookie-banner').style.display = 'none';
+  showToast('✅ Sütibeállítások mentve!');
+}
+
+/* ════════════════════════════════════════════
+   §29  INIT
+════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', async () => {
+  // Cookie banner
+  if (!localStorage.getItem('dp_cookies'))
+    document.getElementById('cookie-banner').style.display = 'flex';
+
+  loadCartFromStorage();
+  loadProducts();
+  updateCounts();
+
+  // FIX #1: handleStripeReturn() most már létezik és itt fut
+  await handleStripeReturn();
+
+  // Deep-link: ?product=<uuid>
+  const params  = new URLSearchParams(window.location.search);
+  const prodId  = params.get('product');
+  const refCode = params.get('ref');
+
+  if (prodId && isValidUUID(prodId)) {
+    const tryOpen = () => {
+      if (allProducts.length) openProduct(prodId);
+      else setTimeout(tryOpen, 200);
+    };
+    setTimeout(tryOpen, 300);
+  }
+
+  // Affiliate kattintás rögzítése
+  if (refCode && prodId && isValidUUID(prodId)) {
+    sb.from('profiles')
+      .select('id').eq('affiliate_code', refCode).single()
+ 
