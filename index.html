@@ -779,7 +779,7 @@ function completePurchase() {
     body: JSON.stringify({
       product_id: p.id,
       product_name: p.name,
-      amount: p.price,
+      amount: p.price * 100,
       currency: 'huf',
       seller_id: p.sellerId,
       buyer_email: currentUser.email,
