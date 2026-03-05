@@ -1912,11 +1912,12 @@ async function doRegister() {
 
   if (!name || !email || !pass || !pass2) { showToast('Töltsd ki az összes mezőt!', 'error'); return; }
   if (pass !== pass2)   { showToast('A jelszavak nem egyeznek!', 'error'); return; }
-  if (pass.length < 8)  { showToast('A jelszó legalább 8 karakter legyen!', 'error'); return; }
+  if (pass.length < 8)  { showToast('A jelszó legalább 8 karakter legyon!', 'error'); return; }
   if (!tos)             { showToast('Fogadd el az ÁSZF-et!', 'error'); return; }
 
   const btn = document.getElementById('register-btn');
-  btn.disabled = true; btn.textContent = 'Regisztráció...';
+  btn.disabled = true; 
+  btn.textContent = 'Regisztráció...';
 
   const { data, error } = await sb.auth.signUp({
     email,
@@ -1924,9 +1925,9 @@ async function doRegister() {
     options: { data: { full_name: name } }
   });
 
-  btn.disabled = false; btn.textContent = 'Regisztráció';
-
   if (error) {
+    btn.disabled = false; 
+    btn.textContent = 'Regisztráció';
     if (error.message?.includes('User already registered') || error.status === 422) {
       showToast('❌ Ez az e-mail cím már regisztrálva van! Jelentkezz be.', 'error');
     } else {
@@ -1935,28 +1936,13 @@ async function doRegister() {
     return;
   }
 
-  // Supabase "fake success" eset: ha az e-mail már létezik, de megerősítetlen,
-  // data.user visszajön, de identities tömb üres
-  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-    showToast('❌ Ez az e-mail cím már regisztrálva van! Jelentkezz be.', 'error');
-    return;
-  }
-
-  if (data.user) {
-    await sb.from('profiles').upsert({
-      id:             data.user.id,
-      full_name:      name,
-      email,
-      role:           'buyer',
-      balance:        0,
-      affiliate_code: genCode()
-    });
-  }
-
-  // Regisztráció után azonnal bejelentkeztetjük
+  // Sikeres regisztráció után azonnal bejelentkeztetjük
   const { error: loginErr } = await sb.auth.signInWithPassword({ email, password: pass });
+  
+  btn.disabled = false; 
+  btn.textContent = 'Regisztráció';
+  
   if (loginErr) {
-    // Ha valamiért nem sikerül auto-login, csak értesítjük
     closeModal('modal-auth');
     showToast('✅ Regisztráció sikeres! Jelentkezz be.', 'info');
     return;
