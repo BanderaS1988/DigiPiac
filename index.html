@@ -77,15 +77,6 @@ window.closeModal = function(id) {
   if (modal) modal.classList.remove('open'); 
 };
 
-window.showToast = function(msg, type = 'success') {
-  const toast = document.getElementById('toast');
-  const msgEl = document.getElementById('toast-msg');
-  if (!toast || !msgEl) return;
-  msgEl.textContent = msg;
-  toast.className = 'toast show' + (type === 'error' ? ' error' : type === 'info' ? ' info' : '');
-  clearTimeout(window._toastTimer);
-  window._toastTimer = setTimeout(() => toast.classList.remove('show'), 3500);
-};
 
 window.filterProducts = function() {
   if (window.filterProductsImpl) window.filterProductsImpl();
